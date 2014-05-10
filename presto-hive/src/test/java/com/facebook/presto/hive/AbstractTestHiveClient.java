@@ -814,6 +814,7 @@ public abstract class AbstractTestHiveClient
         assertGetRecords("presto_test_types_rcbinary", "rcbinary");
     }
 
+    // ORC reader requires JVM timezone to be the same as Hive storage timezone
     @Test(enabled = false)
     public void testTypesOrc()
             throws Exception
@@ -821,14 +822,14 @@ public abstract class AbstractTestHiveClient
         assertGetRecordsOptional("presto_test_types_orc", "orc");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTypesParquet()
             throws Exception
     {
         assertGetRecordsOptional("presto_test_types_parquet", "parquet");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTypesDwrf()
             throws Exception
     {
@@ -1384,6 +1385,10 @@ public abstract class AbstractTestHiveClient
             case "rcfile-binary":
             case "rcbinary":
                 return ColumnarBinaryHiveRecordCursor.class;
+            case "orc":
+                return OrcHiveRecordCursor.class;
+            case "parquet":
+                return ParquetHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;
     }
