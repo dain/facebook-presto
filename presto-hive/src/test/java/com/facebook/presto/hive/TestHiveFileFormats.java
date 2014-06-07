@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -235,6 +236,7 @@ public class TestHiveFileFormats
                 splitProperties,
                 getColumnHandles(testColumns),
                 partitionKeys,
+                TupleDomain.<HiveColumnHandle>all(),
                 DateTimeZone.getDefault()).get();
 
         checkCursor(cursor, testColumns);
