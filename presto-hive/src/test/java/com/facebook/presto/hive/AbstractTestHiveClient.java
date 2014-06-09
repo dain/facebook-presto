@@ -887,7 +887,7 @@ public abstract class AbstractTestHiveClient
         assertGetRecordsOptional("presto_test_types_orc", "orc");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testTypesParquet()
             throws Exception
     {
@@ -1090,7 +1090,7 @@ public abstract class AbstractTestHiveClient
 
         Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, columnHandles);
         try {
-            assertDataStreamType(dataStream, "rcfile-binary");
+            assertDataStreamType(dataStream, "orc");
             MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
             assertEquals(result.getRowCount(), 3);
 
@@ -1184,7 +1184,7 @@ public abstract class AbstractTestHiveClient
 
         Operator dataStream = dataStreamProvider.createNewDataStream(creteOperatorContext(SESSION, executor), split, columnHandles);
         try {
-            assertDataStreamType(dataStream, "rcfile-binary");
+            assertDataStreamType(dataStream, "orc");
             MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
             assertEquals(result.getRowCount(), 3);
 
