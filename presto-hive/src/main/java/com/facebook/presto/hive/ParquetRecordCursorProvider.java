@@ -86,6 +86,9 @@ public class ParquetRecordCursorProvider
                     case LONG:
                     case FLOAT:
                     case DOUBLE:
+                    case MAP:
+                    case LIST:
+                    case STRUCT:
                         return true;
                     case TIMESTAMP:
                         // not supported in Parquet
@@ -93,12 +96,6 @@ public class ParquetRecordCursorProvider
                         // not supported in Parquet
                     case BINARY:
                         // not supported in Parquet
-                    case STRUCT:
-                        // not implemented in Presto
-                    case LIST:
-                        // not implemented in Presto
-                    case MAP:
-                        // not implemented in Presto
                     default:
                         return false;
                 }

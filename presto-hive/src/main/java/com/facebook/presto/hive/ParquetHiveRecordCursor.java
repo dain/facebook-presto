@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Charsets;
@@ -41,9 +43,15 @@ import parquet.io.api.GroupConverter;
 import parquet.io.api.PrimitiveConverter;
 import parquet.io.api.RecordMaterializer;
 import parquet.schema.MessageType;
+import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
+import io.airlift.log.Logger;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -67,6 +75,7 @@ import static java.lang.Math.min;
 class ParquetHiveRecordCursor
         extends HiveRecordCursor
 {
+    private static final Logger log = Logger.get(ParquetHiveRecordCursor.class);
     private final ParquetRecordReader<Void> recordReader;
     private final DateTimeZone sessionTimeZone;
 
@@ -86,6 +95,15 @@ class ParquetHiveRecordCursor
     private final long totalBytes;
     private long completedBytes;
     private boolean closed;
+
+    private List<Object> structBuffer = new ArrayList<Object>();
+
+    private Object currentListElement;
+    private List<Object> listBuffer = new ArrayList<Object>();
+
+    private Object currentMapKey;
+    private Object currentMapValue;
+    private Map<Object, Object> mapBuffer = new HashMap<Object, Object>();
 
     public ParquetHiveRecordCursor(
             Configuration configuration,
@@ -362,20 +380,11 @@ class ParquetHiveRecordCursor
             extends ReadSupport<Void>
     {
         private final List<HiveColumnHandle> columns;
-        private final List<ParquetPrimitiveConverter> converters;
+        private List<Converter> converters;
 
         public PrestoReadSupport(List<HiveColumnHandle> columns)
         {
             this.columns = columns;
-
-            ImmutableList.Builder<ParquetPrimitiveConverter> converters = ImmutableList.builder();
-            for (int i = 0; i < columns.size(); i++) {
-                HiveColumnHandle column = columns.get(i);
-                if (!column.isPartitionKey()) {
-                    converters.add(new ParquetPrimitiveConverter(i));
-                }
-            }
-            this.converters = converters.build();
         }
 
         @Override
@@ -385,12 +394,39 @@ class ParquetHiveRecordCursor
                 Map<String, String> keyValueMetaData,
                 MessageType fileSchema)
         {
+            ImmutableList.Builder<Converter> converters = ImmutableList.builder();
             ImmutableList.Builder<parquet.schema.Type> fields = ImmutableList.builder();
-            for (HiveColumnHandle column : columns) {
+            for (int i = 0; i < columns.size(); i++) {
+                HiveColumnHandle column = columns.get(i);
                 if (!column.isPartitionKey()) {
                     fields.add(fileSchema.getType(column.getName()));
+                    HiveType hiveType = column.getHiveType();
+                    switch (hiveType) {
+                        case BOOLEAN:
+                        case BYTE:
+                        case SHORT:
+                        case STRING:
+                        case INT:
+                        case LONG:
+                        case FLOAT:
+                        case DOUBLE:
+                            converters.add(new ParquetPrimitiveConverter(i));
+                            break;
+                        case MAP:
+                            converters.add(new ParquetMapConverter(i, fileSchema.getType(column.getName())));
+                            break;
+                        case LIST:
+                            converters.add(new ParquetListConverter(i, fileSchema.getType(column.getName())));
+                            break;
+                        case STRUCT:
+                            converters.add(new ParquetStructConverter(i, fileSchema.getType(column.getName())));
+                            break;
+                        default:
+                            break;
+                    }
                 }
             }
+            this.converters = converters.build();
             MessageType requestedProjection = new MessageType(fileSchema.getName(), fields.build());
             return new ReadContext(requestedProjection);
         }
@@ -411,7 +447,7 @@ class ParquetHiveRecordCursor
     {
         private final GroupConverter groupConverter;
 
-        public ParquetRecordConverter(List<ParquetPrimitiveConverter> converters)
+        public ParquetRecordConverter(List<Converter> converters)
         {
             groupConverter = new ParquetGroupConverter(converters);
         }
@@ -432,9 +468,9 @@ class ParquetHiveRecordCursor
     public class ParquetGroupConverter
         extends GroupConverter
     {
-        private final List<ParquetPrimitiveConverter> converters;
+        private final List<Converter> converters;
 
-        public ParquetGroupConverter(List<ParquetPrimitiveConverter> converters)
+        public ParquetGroupConverter(List<Converter> converters)
         {
             this.converters = converters;
         }
@@ -456,15 +492,379 @@ class ParquetHiveRecordCursor
         }
     }
 
+    private enum ParquetValueType
+    {
+        PRIMITIVE,
+        LIST_ELEMENT,
+        STRUCT_ELEMENT,
+        MAP_KEY,
+        MAP_VALUE
+    }
+
+    private enum JsonFieldType
+    {
+        FIELD_NAME,
+        FIELD_VALUE
+    }
+
+    private void serializeObject(JsonGenerator generator, PrimitiveTypeName parquetTypeName,
+                                Object element, JsonFieldType jsonFieldType)
+        throws IOException
+    {
+        if (parquetTypeName.equals(PrimitiveTypeName.BOOLEAN)) {
+            switch (jsonFieldType) {
+                case FIELD_NAME :
+                    generator.writeFieldName(String.valueOf((Boolean) element));
+                    break;
+                case FIELD_VALUE :
+                    generator.writeBoolean((Boolean) element);
+                    break;
+                default:
+                    break;
+            }
+        }
+        else if (parquetTypeName.equals(PrimitiveTypeName.INT32) ||
+                parquetTypeName.equals(PrimitiveTypeName.INT64)) {
+            switch (jsonFieldType) {
+                case FIELD_NAME :
+                    generator.writeFieldName(String.valueOf((long) element));
+                    break;
+                case FIELD_VALUE :
+                    generator.writeNumber((long) element);
+                    break;
+                default:
+                    break;
+            }
+        }
+        else if (parquetTypeName.equals(PrimitiveTypeName.FLOAT) ||
+                parquetTypeName.equals(PrimitiveTypeName.DOUBLE)) {
+            switch (jsonFieldType) {
+                case FIELD_NAME :
+                    generator.writeFieldName(String.valueOf((double) element));
+                    break;
+                case FIELD_VALUE :
+                    generator.writeNumber((double) element);
+                    break;
+                default:
+                    break;
+            }
+        }
+        else if (parquetTypeName.equals(PrimitiveTypeName.BINARY) ||
+                parquetTypeName.equals(PrimitiveTypeName.INT96) ||
+                parquetTypeName.equals(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY)) {
+            switch (jsonFieldType) {
+                case FIELD_NAME :
+                    generator.writeFieldName(((Binary) element).toStringUsingUTF8());
+                    break;
+                case FIELD_VALUE :
+                    generator.writeString(((Binary) element).toStringUsingUTF8());
+                    break;
+                default:
+                    break;
+            }
+        }
+        else {
+            throw new IOException("Invalid Parquet Primitive Type");
+        }
+    }
+
+    public class ParquetStructConverter
+        extends GroupConverter
+    {
+        private final int fieldIndex;
+        private final List<Converter> converterList = new ArrayList<Converter>();
+        private final parquet.schema.Type parquetSchema;
+
+        private ParquetStructConverter(int fieldIndex, parquet.schema.Type parquetSchema)
+        {
+            this.fieldIndex = fieldIndex;
+            this.parquetSchema = parquetSchema;
+            for (int i = 0; i < parquetSchema.asGroupType().getFieldCount(); i++) {
+                if (parquetSchema.asGroupType().getType(i).isPrimitive()) {
+                    converterList.add(new ParquetPrimitiveConverter(fieldIndex, ParquetValueType.STRUCT_ELEMENT));
+                }
+                else {
+                    throw new IllegalArgumentException("Not Support Nested Struct in Parquet: " + parquetSchema.asGroupType().getType(i));
+                }
+            }
+        }
+
+        @Override
+        public Converter getConverter(int fieldIndex)
+        {
+            return converterList.get(fieldIndex);
+        }
+
+        @Override
+        public void start()
+        {
+            structBuffer.clear();
+        }
+
+        @Override
+        public void end()
+        {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (JsonGenerator generator = new JsonFactory().createGenerator(out)) {
+                generator.writeStartObject();
+                for (int i = 0; i < structBuffer.size(); i++) {
+                    PrimitiveTypeName parquetTypeName =
+                        this.parquetSchema.asGroupType().getType(i).asPrimitiveType().getPrimitiveTypeName();
+                    String fieldName = this.parquetSchema.asGroupType().getFieldName(i);
+                    generator.writeFieldName(fieldName);
+                    serializeObject(generator, parquetTypeName, structBuffer.get(i), JsonFieldType.FIELD_VALUE);
+                }
+                generator.writeEndObject();
+                generator.close();
+            }
+            catch (IOException e) {
+                log.error("Error Converting Parquet Struct into Json");
+                throw Throwables.propagate(e);
+            }
+            slices[fieldIndex] = Slices.wrappedBuffer(out.toByteArray());
+            structBuffer.clear();
+        }
+    }
+
+    public class ParquetListConverter
+        extends GroupConverter
+    {
+        private final int fieldIndex;
+        private final ParquetArrayConverter array;
+        private final parquet.schema.Type parquetSchema;
+
+        private ParquetListConverter(int fieldIndex, parquet.schema.Type parquetSchema)
+        {
+            if (parquetSchema.asGroupType().getFieldCount() != 1) {
+                throw new IllegalArgumentException("Invalid Parquet Array Schema: " + parquetSchema);
+            }
+            this.fieldIndex = fieldIndex;
+            this.parquetSchema = parquetSchema;
+            this.array =
+                    new ParquetArrayConverter(fieldIndex,
+                                                parquetSchema.asGroupType().getType(0).asGroupType());
+        }
+
+        @Override
+        public Converter getConverter(int fieldIndex)
+        {
+            if (fieldIndex != 0) {
+                throw new IllegalArgumentException("Parquet Array could not reach index: " + fieldIndex);
+            }
+            return array;
+        }
+
+        @Override
+        public void start()
+        {
+            listBuffer.clear();
+        }
+
+        @Override
+        public void end()
+        {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (JsonGenerator generator = new JsonFactory().createGenerator(out)) {
+                generator.writeStartArray();
+                Iterator<Object> itr = listBuffer.iterator();
+                while (itr.hasNext()) {
+                    PrimitiveTypeName parquetTypeName =
+                        this.parquetSchema.asGroupType().getType(0).asGroupType().getType(0).asPrimitiveType().getPrimitiveTypeName();
+                    Object element = itr.next();
+                    serializeObject(generator, parquetTypeName, element, JsonFieldType.FIELD_VALUE);
+                }
+                generator.writeEndArray();
+                generator.close();
+            }
+            catch (IOException e) {
+                log.error("Error Converting Parquet Array into Json");
+                throw Throwables.propagate(e);
+            }
+            slices[fieldIndex] = Slices.wrappedBuffer(out.toByteArray());
+        }
+    }
+
+    public class ParquetArrayConverter
+        extends GroupConverter
+    {
+        private final int fieldIndex;
+        private final Converter elementConverter;
+
+        private ParquetArrayConverter(int fieldIndex,
+                                        parquet.schema.GroupType parquetSchema)
+        {
+            if (parquetSchema.getFieldCount() != 1) {
+                throw new IllegalArgumentException("Invalid Parquet Array Schema: " + parquetSchema.toString());
+            }
+            this.fieldIndex = fieldIndex;
+
+            if (parquetSchema.getType(0).isPrimitive()) {
+                this.elementConverter = new ParquetPrimitiveConverter(fieldIndex, ParquetValueType.LIST_ELEMENT);
+            }
+            else {
+                throw new IllegalArgumentException("Not Support Nested Array in Parquet");
+            }
+        }
+
+        @Override
+        public Converter getConverter(int fieldIndex)
+        {
+            if (fieldIndex == 0) {
+                return elementConverter;
+            }
+            throw new IllegalArgumentException("Parquet Array could not reach index: " + fieldIndex);
+        }
+
+        @Override
+        public void start()
+        {
+        }
+
+        @Override
+        public void end()
+        {
+            listBuffer.add(currentListElement);
+        }
+    }
+
+    public class ParquetMapConverter
+        extends GroupConverter
+    {
+        private final int fieldIndex;
+        private final ParquetKeyValueConverter keyValue;
+        private final parquet.schema.Type parquetSchema;
+
+        private ParquetMapConverter(int fieldIndex, parquet.schema.Type parquetSchema)
+        {
+            if (parquetSchema.asGroupType().getFieldCount() != 1) {
+                throw new IllegalArgumentException("Invalid Parquet Map Schema: " + parquetSchema);
+            }
+            this.fieldIndex = fieldIndex;
+            this.parquetSchema = parquetSchema;
+            this.keyValue =
+                    new ParquetKeyValueConverter(fieldIndex,
+                                                parquetSchema.asGroupType().getType(0).asGroupType());
+        }
+
+        @Override
+        public Converter getConverter(int fieldIndex)
+        {
+            if (fieldIndex != 0) {
+                throw new IllegalArgumentException("Parquet Map could not reach index: " + fieldIndex);
+            }
+            return keyValue;
+        }
+
+        @Override
+        public void start()
+        {
+            mapBuffer.clear();
+        }
+
+        @Override
+        public void end()
+        {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try (JsonGenerator generator = new JsonFactory().createGenerator(out)) {
+                generator.writeStartObject();
+                for (Map.Entry<Object, Object> entry : mapBuffer.entrySet()) {
+                    PrimitiveTypeName keyTypeName = parquetSchema.asGroupType().getType(0).asGroupType().getType(0).asPrimitiveType().getPrimitiveTypeName();
+                    PrimitiveTypeName valueTypeName = parquetSchema.asGroupType().getType(0).asGroupType().getType(1).asPrimitiveType().getPrimitiveTypeName();
+                    serializeObject(generator, keyTypeName, entry.getKey(), JsonFieldType.FIELD_NAME);
+                    serializeObject(generator, valueTypeName, entry.getValue(), JsonFieldType.FIELD_VALUE);
+                }
+                generator.writeEndObject();
+                generator.close();
+            }
+            catch (IOException e) {
+                log.error("Error Converting Parquet Map into Json");
+                throw Throwables.propagate(e);
+            }
+            slices[fieldIndex] = Slices.wrappedBuffer(out.toByteArray());
+        }
+    }
+
+    public class ParquetKeyValueConverter
+        extends GroupConverter
+    {
+        private final int fieldIndex;
+        private final Converter keyConverter;
+        private final Converter valueConverter;
+
+        private ParquetKeyValueConverter(int fieldIndex,
+                                        parquet.schema.GroupType parquetSchema)
+        {
+            if (parquetSchema.getFieldCount() != 2
+                || !parquetSchema.getType(0).getName().equals("key")
+                || !parquetSchema.getType(1).getName().equals("value")) {
+                    throw new IllegalArgumentException("Invalid Parquet Map Schema: " + parquetSchema.toString());
+            }
+            this.fieldIndex = fieldIndex;
+
+            if (parquetSchema.getType(0).isPrimitive()) {
+                this.keyConverter = new ParquetPrimitiveConverter(fieldIndex, ParquetValueType.MAP_KEY);
+            }
+            else {
+                throw new IllegalArgumentException("Not Support Nested Map in Parquet");
+            }
+
+            if (parquetSchema.getType(1).isPrimitive()) {
+                this.valueConverter = new ParquetPrimitiveConverter(fieldIndex, ParquetValueType.MAP_VALUE);
+            }
+            else {
+                throw new IllegalArgumentException("Not Support Nested Map in Parquet");
+            }
+        }
+
+        @Override
+        public Converter getConverter(int fieldIndex)
+        {
+            if (fieldIndex == 0) {
+                return keyConverter;
+            }
+            else if (fieldIndex == 1) {
+                return valueConverter;
+            }
+            throw new IllegalArgumentException("Parquet Map could not reach index: " + fieldIndex);
+        }
+
+        @Override
+        public void start()
+        {
+        }
+
+        @Override
+        public void end()
+        {
+            mapBuffer.put(currentMapKey, currentMapValue);
+        }
+    }
+
+    private enum PrimitiveType {
+        BOOLEAN,
+        DOUBLE,
+        LONG,
+        BINARY,
+        FLOAT,
+        INT
+    }
+
     @SuppressWarnings("AccessingNonPublicFieldOfAnotherObject")
     private class ParquetPrimitiveConverter
             extends PrimitiveConverter
     {
         private final int fieldIndex;
+        private final ParquetValueType valueType;
 
         private ParquetPrimitiveConverter(int fieldIndex)
         {
+            this(fieldIndex, ParquetValueType.PRIMITIVE);
+        }
+
+        private ParquetPrimitiveConverter(int fieldIndex, ParquetValueType valueType)
+        {
             this.fieldIndex = fieldIndex;
+            this.valueType = valueType;
         }
 
         @Override
@@ -495,46 +895,77 @@ class ParquetHiveRecordCursor
         {
         }
 
+        private void setValue(PrimitiveType primitiveType, Object value)
+        {
+            nulls[fieldIndex] = false;
+            switch (valueType) {
+                case MAP_KEY:
+                    currentMapKey = value;
+                case MAP_VALUE:
+                    currentMapValue = value;
+                case LIST_ELEMENT:
+                    currentListElement = value;
+                case STRUCT_ELEMENT:
+                    structBuffer.add(value);
+                case PRIMITIVE:
+                    switch (primitiveType) {
+                        case BOOLEAN:
+                            booleans[fieldIndex] = ((Boolean) value).booleanValue();
+                            break;
+                        case DOUBLE:
+                        case FLOAT:
+                            doubles[fieldIndex] = ((Double) value).doubleValue();
+                            break;
+                        case INT:
+                        case LONG:
+                            longs[fieldIndex] = ((Long) value).longValue();
+                            break;
+                        case BINARY:
+                            slices[fieldIndex] = Slices.wrappedBuffer(((Binary) value).getBytes());
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
         @Override
         public void addBoolean(boolean value)
         {
-            nulls[fieldIndex] = false;
-            booleans[fieldIndex] = value;
+            setValue(PrimitiveType.BOOLEAN, Boolean.valueOf(value));
         }
 
         @Override
         public void addDouble(double value)
         {
-            nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            setValue(PrimitiveType.DOUBLE, Double.valueOf(value));
         }
 
         @Override
         public void addLong(long value)
         {
-            nulls[fieldIndex] = false;
-            longs[fieldIndex] = value;
+            setValue(PrimitiveType.LONG, Long.valueOf(value));
         }
 
         @Override
         public void addBinary(Binary value)
         {
-            nulls[fieldIndex] = false;
-            slices[fieldIndex] = Slices.wrappedBuffer(value.getBytes());
+            setValue(PrimitiveType.BINARY, value);
         }
 
         @Override
         public void addFloat(float value)
         {
-            nulls[fieldIndex] = false;
-            doubles[fieldIndex] = value;
+            setValue(PrimitiveType.FLOAT, Double.valueOf(value));
         }
 
         @Override
         public void addInt(int value)
         {
-            nulls[fieldIndex] = false;
-            longs[fieldIndex] = value;
+            setValue(PrimitiveType.INT, Long.valueOf(value));
         }
     }
 }
