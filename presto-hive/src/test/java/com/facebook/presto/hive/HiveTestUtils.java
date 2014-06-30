@@ -13,12 +13,20 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.operator.Operator;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableSet;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
 
 public final class HiveTestUtils
 {
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.of(
-            new OrcRecordCursorProvider(),
             new ParquetRecordCursorProvider(),
             new DwrfRecordCursorProvider(),
             new ColumnarTextHiveRecordCursorProvider(),
@@ -27,5 +35,18 @@ public final class HiveTestUtils
 
     private HiveTestUtils()
     {
+    }
+
+    public static void close(Operator dataStream)
+            throws IOException
+    {
+        if (dataStream instanceof Closeable) {
+            ((Closeable) dataStream).close();
+        }
+    }
+
+    public static OperatorContext creteOperatorContext(ConnectorSession session, ExecutorService executor)
+    {
+        return new TaskContext(new TaskId("query", "stage", "task"), executor, session).addPipelineContext(true, true).addDriverContext().addOperatorContext(0, "test");
     }
 }

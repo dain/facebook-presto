@@ -322,13 +322,15 @@ class OrcHiveRecordCursor
                     longs[column] = shortWritable.get();
                     break;
                 case DATE:
-                    long storageTime = ((DateWritable) object).get().getTime();
+                    long storageTime = ((DateWritable) object).getTimeInSeconds() * 1000;
                     long utcTime = storageTime + hiveStorageTimeZone.getOffset(storageTime);
                     longs[column] = utcTime;
                     break;
                 case TIMESTAMP:
                     TimestampWritable timestampWritable = (TimestampWritable) object;
-                    longs[column] = timestampWritable.getTimestamp().getTime();
+                    long seconds = timestampWritable.getSeconds();
+                    int nanos = timestampWritable.getNanos();
+                    longs[column] = (seconds * 1000) + (nanos / 1_000_000);
                     break;
                 case BYTE:
                     ByteWritable byteWritable = (ByteWritable) object;
