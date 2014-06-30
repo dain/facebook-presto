@@ -61,6 +61,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
@@ -226,6 +227,7 @@ public abstract class AbstractTestHiveClient
                 metastoreClient,
                 new NamenodeStats(),
                 new HdfsEnvironment(new HdfsConfiguration(hiveClientConfig)),
+                DEFAULT_HIVE_RECORD_CURSOR_PROVIDER,
                 new HadoopDirectoryLister(),
                 timeZone,
                 sameThreadExecutor(),

@@ -57,6 +57,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
@@ -86,6 +87,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -162,6 +164,7 @@ public class HiveClient
     private final int maxInitialSplits;
     private final HiveStorageFormat hiveStorageFormat;
     private final boolean recursiveDfsWalkerEnabled;
+    private final Set<HiveRecordCursorProvider> recordCursorProviders;
 
     @Inject
     public HiveClient(HiveConnectorId connectorId,
@@ -169,6 +172,7 @@ public class HiveClient
             HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
+            Set<HiveRecordCursorProvider> recordCursorProviders,
             DirectoryLister directoryLister,
             @ForHiveClient ExecutorService executorService)
     {
@@ -176,6 +180,7 @@ public class HiveClient
                 metastore,
                 namenodeStats,
                 hdfsEnvironment,
+                recordCursorProviders,
                 directoryLister,
                 DateTimeZone.forTimeZone(hiveClientConfig.getTimeZone()),
                 new BoundedExecutor(executorService, hiveClientConfig.getMaxGlobalSplitIteratorThreads()),
@@ -196,6 +201,7 @@ public class HiveClient
             HiveMetastore metastore,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
+            Set<HiveRecordCursorProvider> recordCursorProviders,
             DirectoryLister directoryLister,
             DateTimeZone timeZone,
             Executor executor,
@@ -226,6 +232,7 @@ public class HiveClient
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.recordCursorProviders = ImmutableSet.copyOf(checkNotNull(recordCursorProviders, "recordCursorProviders is null"));
         this.namenodeStats = checkNotNull(namenodeStats, "namenodeStats is null");
         this.directoryLister = checkNotNull(directoryLister, "directoryLister is null");
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
@@ -993,7 +1000,7 @@ public class HiveClient
         HiveSplit hiveSplit = checkType(split, HiveSplit.class, "split");
 
         List<HiveColumnHandle> hiveColumns = ImmutableList.copyOf(transform(columns, hiveColumnHandle()));
-        return new HiveRecordSet(hdfsEnvironment, hiveSplit, hiveColumns, HiveRecordCursorProviders.getDefaultProviders(), timeZone);
+        return new HiveRecordSet(hdfsEnvironment, hiveSplit, hiveColumns, recordCursorProviders, timeZone);
     }
 
     @Override

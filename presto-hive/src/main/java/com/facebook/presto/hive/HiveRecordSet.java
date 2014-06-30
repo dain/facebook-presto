@@ -20,6 +20,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.hive.HiveColumnHandle.hiveColumnIndexGetter;
@@ -68,15 +70,15 @@ public class HiveRecordSet
     private final List<Integer> readHiveColumnIndexes;
     private final Path path;
     private final Configuration configuration;
-    private final List<HiveRecordCursorProvider> cursorProviders;
+    private final Set<HiveRecordCursorProvider> cursorProviders;
     private final DateTimeZone timeZone;
 
-    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns, List<HiveRecordCursorProvider> cursorProviders, DateTimeZone timeZone)
+    public HiveRecordSet(HdfsEnvironment hdfsEnvironment, HiveSplit split, List<HiveColumnHandle> columns, Set<HiveRecordCursorProvider> cursorProviders, DateTimeZone timeZone)
     {
         this.split = checkNotNull(split, "split is null");
         this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
         this.columnTypes = ImmutableList.copyOf(Iterables.transform(columns, nativeTypeGetter()));
-        this.cursorProviders = ImmutableList.copyOf(checkNotNull(cursorProviders, "cursor providers is null"));
+        this.cursorProviders = ImmutableSet.copyOf(checkNotNull(cursorProviders, "cursor providers is null"));
         this.timeZone = checkNotNull(timeZone, "timeZone is null");
 
         // determine which hive columns we will read
