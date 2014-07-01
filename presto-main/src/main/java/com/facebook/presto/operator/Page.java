@@ -104,6 +104,13 @@ public class Page
         return row;
     }
 
+    public void assureLoaded()
+    {
+        for (Block block : blocks) {
+            block.assureLoaded();
+        }
+    }
+
     @Override
     public String toString()
     {
