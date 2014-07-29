@@ -18,18 +18,13 @@ import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.metadata.FunctionRegistry;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
-import com.google.common.base.Throwables;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
 import static com.facebook.presto.byteCode.instruction.Constant.loadBoolean;
@@ -38,7 +33,6 @@ import static com.facebook.presto.byteCode.instruction.Constant.loadFloat;
 import static com.facebook.presto.byteCode.instruction.Constant.loadInt;
 import static com.facebook.presto.byteCode.instruction.Constant.loadLong;
 import static com.facebook.presto.byteCode.instruction.Constant.loadString;
-import static com.facebook.presto.sql.gen.ByteCodeUtils.invoke;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.loadConstant;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
@@ -48,7 +42,6 @@ import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
 import static com.facebook.presto.sql.relational.Signatures.TRY_CAST;
-import static java.lang.String.format;
 
 public class ByteCodeExpressionVisitor
         implements RowExpressionVisitor<CompilerContext, ByteCodeNode>
@@ -56,18 +49,15 @@ public class ByteCodeExpressionVisitor
     private final CallSiteBinder callSiteBinder;
     private final ByteCodeNode getSessionByteCode;
     private final FunctionRegistry registry;
-    private final boolean sourceIsCursor;
 
     public ByteCodeExpressionVisitor(
             CallSiteBinder callSiteBinder,
             ByteCodeNode getSessionByteCode,
-            FunctionRegistry registry,
-            boolean sourceIsCursor)
+            FunctionRegistry registry)
     {
         this.callSiteBinder = callSiteBinder;
         this.getSessionByteCode = getSessionByteCode;
         this.registry = registry;
-        this.sourceIsCursor = sourceIsCursor;
     }
 
     @Override
@@ -179,64 +169,23 @@ public class ByteCodeExpressionVisitor
 
         Class<?> javaType = type.getJavaType();
 
-        if (sourceIsCursor) {
-            Block isNullCheck = new Block(context)
-                    .setDescription(format("cursor.get%s(%d)", type, field))
-                    .getVariable("cursor")
-                    .push(field)
-                    .invokeInterface(RecordCursor.class, "isNull", boolean.class, int.class);
+        Block isNullCheck = new Block(context)
+                .getVariable("input")
+                .getVariable("position")
+                .invokeDynamic("isNull", MethodType.methodType(boolean.class, Object.class, int.class), FieldReferenceBootstrap.BOOTSTRAP_METHOD, field, -1);
 
-            Block isNull = new Block(context)
-                    .putVariable("wasNull", true)
-                    .pushJavaDefault(javaType);
+        Block isNull = new Block(context)
+                .putVariable("wasNull", true)
+                .pushJavaDefault(javaType);
 
-            Block isNotNull = new Block(context)
-                    .getVariable("cursor")
-                    .push(field);
+        Binding typeConstant = callSiteBinder.bind(type, type.getClass());
 
-            if (javaType == boolean.class) {
-                isNotNull.invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
-            }
-            else if (javaType == long.class) {
-                isNotNull.invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
-            }
-            else if (javaType == double.class) {
-                isNotNull.invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
-            }
-            else if (javaType == Slice.class) {
-                isNotNull.invokeInterface(RecordCursor.class, "getSlice", Slice.class, int.class);
-            }
-            else {
-                throw new UnsupportedOperationException("not yet implemented: " + type);
-            }
+        String getterName = "get" + Primitives.wrap(javaType).getSimpleName();
+        Block isNotNull = new Block(context)
+                .getVariable("input")
+                .getVariable("position")
+                .invokeDynamic(getterName, MethodType.methodType(javaType, Object.class, int.class), FieldReferenceBootstrap.BOOTSTRAP_METHOD, field, typeConstant.getBindingId());
 
-            return new IfStatement(context, isNullCheck, isNull, isNotNull);
-        }
-        else {
-            Block isNullCheck = new Block(context)
-                    .setDescription(format("block_%d.get%s()", field, type))
-                    .getVariable("block_" + field)
-                    .getVariable("position")
-                    .invokeInterface(com.facebook.presto.spi.block.Block.class, "isNull", boolean.class, int.class);
-
-            Block isNull = new Block(context)
-                    .putVariable("wasNull", true)
-                    .pushJavaDefault(javaType);
-
-            try {
-                String methodName = "get" + Primitives.wrap(javaType).getSimpleName();
-                MethodHandle target = MethodHandles.lookup().findVirtual(type.getClass(), methodName, MethodType.methodType(javaType, com.facebook.presto.spi.block.Block.class, int.class));
-
-                Block isNotNull = new Block(context)
-                        .getVariable("block_" + field)
-                        .getVariable("position")
-                        .append(invoke(context, callSiteBinder.bind(target.bindTo(type))));
-
-                return new IfStatement(context, isNullCheck, isNull, isNotNull);
-            }
-            catch (NoSuchMethodException | IllegalAccessException e) {
-                throw Throwables.propagate(e);
-            }
-        }
+        return new IfStatement(context, isNullCheck, isNull, isNotNull);
     }
 }

@@ -705,7 +705,8 @@ public abstract class AbstractTestQueries
     public void testCountAllWithComparison()
             throws Exception
     {
-        assertQuery("SELECT COUNT(*) FROM lineitem WHERE tax < discount");
+        assertQuery("SELECT count(*) FROM lineitem WHERE tax < discount");
+//        assertQuery("SELECT COUNT(*) FROM lineitem WHERE tax < discount");
     }
 
     @Test

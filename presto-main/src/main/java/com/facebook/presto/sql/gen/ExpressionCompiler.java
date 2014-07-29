@@ -20,7 +20,6 @@ import com.facebook.presto.byteCode.ClassInfoLoader;
 import com.facebook.presto.byteCode.CompilerContext;
 import com.facebook.presto.byteCode.DumpByteCodeVisitor;
 import com.facebook.presto.byteCode.DynamicClassLoader;
-import com.facebook.presto.byteCode.FieldDefinition;
 import com.facebook.presto.byteCode.LocalVariableDefinition;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.NamedParameterDefinition;
@@ -31,25 +30,11 @@ import com.facebook.presto.byteCode.control.ForLoop.ForLoopBuilder;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.control.IfStatement.IfStatementBuilder;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.AbstractFilterAndProjectOperator;
-import com.facebook.presto.operator.AbstractScanFilterAndProjectOperator;
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.PageBuilder;
-import com.facebook.presto.operator.SourceOperator;
-import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.split.DataStreamProvider;
-import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.presto.sql.relational.Expressions;
-import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
@@ -58,7 +43,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -70,19 +54,20 @@ import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.Constructor;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -96,12 +81,8 @@ import static com.facebook.presto.byteCode.NamedParameterDefinition.arg;
 import static com.facebook.presto.byteCode.OpCodes.NOP;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.byteCode.ParameterizedType.typeFromPathName;
-import static com.facebook.presto.byteCode.control.ForLoop.forLoopBuilder;
 import static com.facebook.presto.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static com.google.common.base.Objects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Collections.nCopies;
 
 public class ExpressionCompiler
 {
@@ -109,32 +90,21 @@ public class ExpressionCompiler
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
 
-    private static final boolean DUMP_BYTE_CODE_TREE = false;
+    private static final boolean DUMP_BYTE_CODE_TREE = true;
     private static final boolean DUMP_BYTE_CODE_RAW = false;
     private static final boolean RUN_ASM_VERIFIER = false; // verifier doesn't work right now
     private static final AtomicReference<String> DUMP_CLASS_FILES_TO = new AtomicReference<>();
 
     private final Metadata metadata;
 
-    private final LoadingCache<OperatorCacheKey, FilterAndProjectOperatorFactoryFactory> operatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<OperatorCacheKey, FilterAndProjectOperatorFactoryFactory>()
+    private final LoadingCache<CacheKey, FilterAndProject> processors = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<CacheKey, FilterAndProject>()
             {
                 @Override
-                public FilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
+                public FilterAndProject load(CacheKey key)
                         throws Exception
                 {
-                    return internalCompileFilterAndProjectOperator(key.getFilter(), key.getProjections());
-                }
-            });
-
-    private final LoadingCache<OperatorCacheKey, ScanFilterAndProjectOperatorFactoryFactory> sourceOperatorFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
-            new CacheLoader<OperatorCacheKey, ScanFilterAndProjectOperatorFactoryFactory>()
-            {
-                @Override
-                public ScanFilterAndProjectOperatorFactoryFactory load(OperatorCacheKey key)
-                        throws Exception
-                {
-                    return internalCompileScanFilterAndProjectOperator(key.getSourceId(), key.getFilter(), key.getProjections());
+                    return compileAndInstantiate(key.getFilter(), key.getProjections());
                 }
             });
 
@@ -153,52 +123,32 @@ public class ExpressionCompiler
     }
 
     @Managed
-    public long getCachedFilterAndProjectOperators()
+    public long getCacheSize()
     {
-        return operatorFactories.size();
+        return processors.size();
     }
 
-    @Managed
-    public long getCachedScanFilterAndProjectOperators()
+    public FilterAndProject compile(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
     {
-        return sourceOperatorFactories.size();
-    }
-
-    public OperatorFactory compileFilterAndProjectOperator(int operatorId,
-            RowExpression filter,
-            List<RowExpression> projections)
-    {
-        return operatorFactories.getUnchecked(new OperatorCacheKey(filter, projections, null)).create(operatorId);
-    }
-
-    private DynamicClassLoader createClassLoader()
-    {
-        return new DynamicClassLoader(getClass().getClassLoader());
+        return processors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
     }
 
     @VisibleForTesting
-    public FilterAndProjectOperatorFactoryFactory internalCompileFilterAndProjectOperator(
-            RowExpression filter,
-            List<RowExpression> projections)
+    private FilterAndProject compileAndInstantiate(RowExpression filter, List<RowExpression> projections)
     {
-        DynamicClassLoader classLoader = createClassLoader();
+        DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
 
         // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileFilterAndProjectOperator(filter, projections, classLoader);
-
-        Constructor<? extends Operator> constructor;
+        Class<? extends FilterAndProject> clazz = compileProcessor(filter, projections, classLoader);
         try {
-            constructor = typedOperatorClass.getOperatorClass().getConstructor(OperatorContext.class, Iterable.class);
+            return clazz.newInstance();
         }
-        catch (NoSuchMethodException e) {
+        catch (InstantiationException | IllegalAccessException e) {
             throw Throwables.propagate(e);
         }
-        FilterAndProjectOperatorFactoryFactory operatorFactoryFactory = new FilterAndProjectOperatorFactoryFactory(constructor, typedOperatorClass.getTypes());
-
-        return operatorFactoryFactory;
     }
 
-    private TypedOperatorClass compileFilterAndProjectOperator(
+    private Class<? extends FilterAndProject> compileProcessor(
             RowExpression filter,
             List<RowExpression> projections,
             DynamicClassLoader classLoader)
@@ -207,38 +157,25 @@ public class ExpressionCompiler
 
         ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC, FINAL),
-                typeFromPathName("FilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
-                type(AbstractFilterAndProjectOperator.class));
+                typeFromPathName("FilterAndProject_" + CLASS_ID.incrementAndGet()),
+                type(Object.class),
+                type(FilterAndProject.class));
 
-        // declare fields
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
         classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), "callSites", Map.class);
 
         // constructor
-        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
-                a(PUBLIC),
-                arg("operatorContext", OperatorContext.class),
-                arg("types", type(Iterable.class, Type.class)))
+        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD), a(PUBLIC))
                 .getBody()
-                .comment("super(operatorContext, types);")
                 .pushThis()
-                .getVariable("operatorContext")
-                .getVariable("types")
-                .invokeConstructor(AbstractFilterAndProjectOperator.class, OperatorContext.class, Iterable.class)
-                .comment("this.session = operatorContext.getSession();")
-                .pushThis()
-                .getVariable("operatorContext")
-                .invokeVirtual(OperatorContext.class, "getSession", ConnectorSession.class)
-                .putField(sessionField)
+                .invokeSpecial(Object.class, "<init>", void.class)
                 .ret();
 
-        generateFilterAndProjectRowOriented(classDefinition, filter, projections);
+        generateProcessMethod(classDefinition, projections.size());
 
         //
         // filter method
         //
-        generateFilterMethod(callSiteBinder, classDefinition, filter, true);
-        generateFilterMethod(callSiteBinder, classDefinition, filter, false);
+        generateFilterMethod(callSiteBinder, classDefinition, filter);
 
         //
         // project methods
@@ -246,8 +183,7 @@ public class ExpressionCompiler
         List<Type> types = new ArrayList<>();
         int projectionIndex = 0;
         for (RowExpression projection : projections) {
-            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, true);
-            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, false);
+            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection);
             types.add(projection.getType());
             projectionIndex++;
         }
@@ -262,131 +198,9 @@ public class ExpressionCompiler
                         .add("projections", projections)
                         .toString());
 
-        Class<? extends Operator> filterAndProjectClass = defineClass(classDefinition, Operator.class, classLoader);
-        setCallSitesField(filterAndProjectClass, callSiteBinder.getBindings());
-
-        return new TypedOperatorClass(filterAndProjectClass, types);
-    }
-
-    public SourceOperatorFactory compileScanFilterAndProjectOperator(
-            int operatorId,
-            PlanNodeId sourceId,
-            DataStreamProvider dataStreamProvider,
-            List<ColumnHandle> columns,
-            RowExpression filter,
-            List<RowExpression> projections)
-    {
-        OperatorCacheKey cacheKey = new OperatorCacheKey(filter, projections, sourceId);
-        return sourceOperatorFactories.getUnchecked(cacheKey).create(operatorId, dataStreamProvider, columns);
-    }
-
-    @VisibleForTesting
-    public ScanFilterAndProjectOperatorFactoryFactory internalCompileScanFilterAndProjectOperator(
-            PlanNodeId sourceId,
-            RowExpression filter,
-            List<RowExpression> projections)
-    {
-        DynamicClassLoader classLoader = createClassLoader();
-
-        // create filter and project page iterator class
-        TypedOperatorClass typedOperatorClass = compileScanFilterAndProjectOperator(filter, projections, classLoader);
-
-        Constructor<? extends SourceOperator> constructor;
-        try {
-            constructor = typedOperatorClass.getOperatorClass().asSubclass(SourceOperator.class).getConstructor(
-                    OperatorContext.class,
-                    PlanNodeId.class,
-                    DataStreamProvider.class,
-                    Iterable.class,
-                    Iterable.class);
-        }
-        catch (NoSuchMethodException e) {
-            throw Throwables.propagate(e);
-        }
-
-        ScanFilterAndProjectOperatorFactoryFactory operatorFactoryFactory = new ScanFilterAndProjectOperatorFactoryFactory(
-                constructor,
-                sourceId,
-                typedOperatorClass.getTypes());
-
-        return operatorFactoryFactory;
-    }
-
-    private TypedOperatorClass compileScanFilterAndProjectOperator(
-            RowExpression filter,
-            List<RowExpression> projections,
-            DynamicClassLoader classLoader)
-    {
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-
-        ClassDefinition classDefinition = new ClassDefinition(new CompilerContext(BOOTSTRAP_METHOD),
-                a(PUBLIC, FINAL),
-                typeFromPathName("ScanFilterAndProjectOperator_" + CLASS_ID.incrementAndGet()),
-                type(AbstractScanFilterAndProjectOperator.class));
-
-        // declare fields
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
-        classDefinition.declareField(a(PRIVATE, VOLATILE, STATIC), "callSites", Map.class);
-
-        // constructor
-        classDefinition.declareConstructor(new CompilerContext(BOOTSTRAP_METHOD),
-                a(PUBLIC),
-                arg("operatorContext", OperatorContext.class),
-                arg("sourceId", PlanNodeId.class),
-                arg("dataStreamProvider", DataStreamProvider.class),
-                arg("columns", type(Iterable.class, ColumnHandle.class)),
-                arg("types", type(Iterable.class, Type.class)))
-                .getBody()
-                .comment("super(operatorContext, sourceId, dataStreamProvider, columns, types);")
-                .pushThis()
-                .getVariable("operatorContext")
-                .getVariable("sourceId")
-                .getVariable("dataStreamProvider")
-                .getVariable("columns")
-                .getVariable("types")
-                .invokeConstructor(AbstractScanFilterAndProjectOperator.class, OperatorContext.class, PlanNodeId.class, DataStreamProvider.class, Iterable.class, Iterable.class)
-                .comment("this.session = operatorContext.getSession();")
-                .pushThis()
-                .getVariable("operatorContext")
-                .invokeVirtual(OperatorContext.class, "getSession", ConnectorSession.class)
-                .putField(sessionField)
-                .ret();
-
-        generateFilterAndProjectRowOriented(classDefinition, filter, projections);
-        generateFilterAndProjectCursorMethod(classDefinition, projections);
-
-        //
-        // filter method
-        //
-        generateFilterMethod(callSiteBinder, classDefinition, filter, true);
-        generateFilterMethod(callSiteBinder, classDefinition, filter, false);
-
-        //
-        // project methods
-        //
-        List<Type> types = new ArrayList<>();
-        int projectionIndex = 0;
-        for (RowExpression projection : projections) {
-            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, true);
-            generateProjectMethod(callSiteBinder, classDefinition, "project_" + projectionIndex, projection, false);
-            types.add(projection.getType());
-            projectionIndex++;
-        }
-
-        //
-        // toString method
-        //
-        generateToString(
-                classDefinition,
-                toStringHelper(classDefinition.getType().getJavaClassName())
-                        .add("filter", filter)
-                        .add("projections", projections)
-                        .toString());
-
-        Class<? extends SourceOperator> filterAndProjectClass = defineClass(classDefinition, SourceOperator.class, classLoader);
-        setCallSitesField(filterAndProjectClass, callSiteBinder.getBindings());
-
-        return new TypedOperatorClass(filterAndProjectClass, types);
+        Class<? extends FilterAndProject> clazz = defineClass(classDefinition, FilterAndProject.class, classLoader);
+        setCallSitesField(clazz, callSiteBinder.getBindings());
+        return clazz;
     }
 
     private void generateToString(ClassDefinition classDefinition, String string)
@@ -402,236 +216,137 @@ public class ExpressionCompiler
                 .retObject();
     }
 
-    private void generateFilterAndProjectRowOriented(
-            ClassDefinition classDefinition,
-            RowExpression filter,
-            List<RowExpression> projections)
+    private void generateProcessMethod(ClassDefinition classDefinition, int projections)
     {
-        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
+        MethodDefinition method = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
                 a(PUBLIC),
-                "filterAndProjectRowOriented",
-                type(void.class),
-                arg("page", com.facebook.presto.operator.Page.class),
-                arg("pageBuilder", PageBuilder.class));
-
-        CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
-
-        LocalVariableDefinition positionVariable = compilerContext.declareVariable(int.class, "position");
-
-        LocalVariableDefinition rowsVariable = compilerContext.declareVariable(int.class, "rows");
-        filterAndProjectMethod.getBody()
-                .comment("int rows = page.getPositionCount();")
-                .getVariable("page")
-                .invokeVirtual(com.facebook.presto.operator.Page.class, "getPositionCount", int.class)
-                .putVariable(rowsVariable);
-
-        List<Integer> allInputChannels = getInputChannels(Iterables.concat(projections, ImmutableList.of(filter)));
-        for (int channel : allInputChannels) {
-            LocalVariableDefinition blockVariable = compilerContext.declareVariable(com.facebook.presto.spi.block.Block.class, "block_" + channel);
-            filterAndProjectMethod.getBody()
-                    .comment("Block %s = page.getBlock(%s);", blockVariable.getName(), channel)
-                    .getVariable("page")
-                    .push(channel)
-                    .invokeVirtual(com.facebook.presto.operator.Page.class, "getBlock", com.facebook.presto.spi.block.Block.class, int.class)
-                    .putVariable(blockVariable);
-        }
-
-        //
-        // for loop body
-        //
-
-        // for (position = 0; position < rows; position++)
-        ForLoopBuilder forLoop = forLoopBuilder(compilerContext)
-                .comment("for (position = 0; position < rows; position++)")
-                .initialize(new Block(compilerContext).putVariable(positionVariable, 0))
-                .condition(new Block(compilerContext)
-                        .getVariable(positionVariable)
-                        .getVariable(rowsVariable)
-                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
-                .update(new Block(compilerContext).incrementVariable(positionVariable, (byte) 1));
-
-        Block forLoopBody = new Block(compilerContext);
-
-        IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext)
-                .comment("if (filter(position, blocks...)");
-        Block condition = new Block(compilerContext);
-        condition.pushThis();
-        condition.getVariable(positionVariable);
-        List<Integer> filterInputChannels = getInputChannels(filter);
-        for (int channel : filterInputChannels) {
-            condition.getVariable("block_" + channel);
-        }
-        condition.invokeVirtual(classDefinition.getType(),
-                "filter",
-                type(boolean.class),
-                ImmutableList.<ParameterizedType>builder()
-                        .add(type(int.class))
-                        .addAll(nCopies(filterInputChannels.size(), type(com.facebook.presto.spi.block.Block.class)))
-                        .build());
-        ifStatement.condition(condition);
-
-        Block trueBlock = new Block(compilerContext);
-        if (projections.isEmpty()) {
-            trueBlock
-                    .comment("pageBuilder.declarePosition()")
-                    .getVariable("pageBuilder")
-                    .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
-        }
-        else {
-            // pageBuilder.getBlockBuilder(0).append(block.getDouble(0);
-            for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
-                trueBlock.comment("project_%s(position, blocks..., pageBuilder.getBlockBuilder(%s))", projectionIndex, projectionIndex);
-                trueBlock.pushThis();
-                List<Integer> projectionInputs = getInputChannels(projections.get(projectionIndex));
-                trueBlock.getVariable(positionVariable);
-                for (int channel : projectionInputs) {
-                    trueBlock.getVariable("block_" + channel);
-                }
-
-                // pageBuilder.getBlockBuilder(0)
-                trueBlock.getVariable("pageBuilder")
-                        .push(projectionIndex)
-                        .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
-
-                // project(position, block_0, block_1, blockBuilder)
-                trueBlock.invokeVirtual(classDefinition.getType(),
-                        "project_" + projectionIndex,
-                        type(void.class),
-                        ImmutableList.<ParameterizedType>builder()
-                                .add(type(int.class))
-                                .addAll(nCopies(projectionInputs.size(), type(com.facebook.presto.spi.block.Block.class)))
-                                .add(type(BlockBuilder.class))
-                                .build());
-            }
-        }
-        ifStatement.ifTrue(trueBlock);
-
-        forLoopBody.append(ifStatement.build());
-        filterAndProjectMethod.getBody().append(forLoop.body(forLoopBody).build());
-
-        filterAndProjectMethod.getBody().ret();
-    }
-
-    private void generateFilterAndProjectCursorMethod(ClassDefinition classDefinition, List<RowExpression> projections)
-    {
-        MethodDefinition filterAndProjectMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
-                a(PUBLIC),
-                "filterAndProjectRowOriented",
+                "process",
                 type(int.class),
-                arg("cursor", RecordCursor.class),
+                arg("session", ConnectorSession.class),
+                arg("input", Object.class),
+                arg("start", int.class),
+                arg("end", int.class),
                 arg("pageBuilder", PageBuilder.class));
 
-        CompilerContext compilerContext = filterAndProjectMethod.getCompilerContext();
+        CompilerContext compilerContext = method.getCompilerContext();
 
-        LocalVariableDefinition completedPositionsVariable = compilerContext.declareVariable(int.class, "completedPositions");
-        filterAndProjectMethod.getBody()
-                .comment("int completedPositions = 0;")
-                .putVariable(completedPositionsVariable, 0);
+        LocalVariableDefinition position = compilerContext.declareVariable(int.class, "position");
+        method.getBody()
+                .comment("int position = start;")
+                .getVariable("start")
+                .putVariable(position);
 
         //
         // for loop loop body
         //
         LabelNode done = new LabelNode("done");
-        ForLoopBuilder forLoop = ForLoop.forLoopBuilder(compilerContext)
+        ForLoopBuilder loop = ForLoop.forLoopBuilder(compilerContext)
                 .initialize(NOP)
                 .condition(new Block(compilerContext)
-                        .comment("completedPositions < 16384")
-                        .getVariable(completedPositionsVariable)
-                        .push(16384)
-                        .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
+                                .comment("position < end")
+                                .getVariable(position)
+                                .getVariable("end")
+                                .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class)
                 )
                 .update(new Block(compilerContext)
-                        .comment("completedPositions++")
-                        .incrementVariable(completedPositionsVariable, (byte) 1)
-                );
+                        .comment("position++")
+                        .incrementVariable(position, (byte) 1));
 
-        Block forLoopBody = new Block(compilerContext);
-        forLoop.body(forLoopBody);
+        Block loopBody = new Block(compilerContext);
+        loop.body(loopBody);
 
-        forLoopBody.comment("if (pageBuilder.isFull()) break;")
+        loopBody.comment("if (pageBuilder.isFull()) break;")
                 .append(new Block(compilerContext)
                         .getVariable("pageBuilder")
                         .invokeVirtual(PageBuilder.class, "isFull", boolean.class)
                         .ifTrueGoto(done));
 
-        forLoopBody.comment("if (!cursor.advanceNextPosition()) break;")
+        loopBody.comment("if (!advance(cursor)) break;")
                 .append(new Block(compilerContext)
-                        .getVariable("cursor")
-                        .invokeInterface(RecordCursor.class, "advanceNextPosition", boolean.class)
-                        .ifFalseGoto(done));
+                        .getVariable("input")
+                        .invokeDynamic("advanceNextPosition", MethodType.methodType(boolean.class, Object.class), FieldReferenceBootstrap.BOOTSTRAP_METHOD, 0, -1))
+                .ifFalseGoto(done);
 
         // if (filter(cursor))
-        IfStatementBuilder ifStatement = new IfStatementBuilder(compilerContext);
-        ifStatement.condition(new Block(compilerContext)
+        IfStatementBuilder filter = new IfStatementBuilder(compilerContext);
+        filter.condition(new Block(compilerContext)
                 .pushThis()
-                .getVariable("cursor")
-                .invokeVirtual(classDefinition.getType(), "filter", type(boolean.class), type(RecordCursor.class)));
+                .getVariable("session")
+                .getVariable("input")
+                .getVariable("position")
+                .invokeVirtual(classDefinition.getType(),
+                        "filter",
+                        type(boolean.class),
+                        type(ConnectorSession.class),
+                        type(Object.class),
+                        type(int.class)));
 
         Block trueBlock = new Block(compilerContext);
-        ifStatement.ifTrue(trueBlock);
-        if (projections.isEmpty()) {
+        filter.ifTrue(trueBlock);
+        if (projections == 0) {
             // pageBuilder.declarePosition();
             trueBlock.getVariable("pageBuilder").invokeVirtual(PageBuilder.class, "declarePosition", void.class);
         }
         else {
-            // project_43(block..., pageBuilder.getBlockBuilder(42)));
-            for (int projectionIndex = 0; projectionIndex < projections.size(); projectionIndex++) {
+            // project_43(session, input, position, pageBuilder.getBlockBuilder(42)));
+            for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
                 trueBlock.pushThis();
-                trueBlock.getVariable("cursor");
+                trueBlock.getVariable("session");
+                trueBlock.getVariable("input");
+                trueBlock.getVariable("position");
 
-                // pageBuilder.getBlockBuilder(0)
-                trueBlock.getVariable("pageBuilder")
+                trueBlock.comment("pageBuilder.getBlockBuilder(" + projectionIndex + ")")
+                        .getVariable("pageBuilder")
                         .push(projectionIndex)
                         .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
-                // project(block..., blockBuilder)
-                trueBlock.invokeVirtual(classDefinition.getType(),
-                        "project_" + projectionIndex,
-                        type(void.class),
-                        type(RecordCursor.class),
-                        type(BlockBuilder.class));
+                trueBlock
+                        .comment("project(input, position, session, blockBuilder)")
+                        .invokeVirtual(classDefinition.getType(),
+                                "project_" + projectionIndex,
+                                type(void.class),
+                                type(ConnectorSession.class),
+                                type(Object.class),
+                                type(int.class),
+                                type(BlockBuilder.class));
             }
         }
-        forLoopBody.append(ifStatement.build());
+        loopBody.append(filter.build());
 
-        filterAndProjectMethod.getBody()
-                .append(forLoop.build())
+        method.getBody()
+                .append(loop.build())
                 .visitLabel(done)
-                .comment("return completedPositions;")
-                .getVariable("completedPositions")
+                .comment("return position;")
+                .getVariable("position")
                 .retInt();
     }
 
     private void generateFilterMethod(
             CallSiteBinder callSiteBinder,
             ClassDefinition classDefinition,
-            RowExpression filter,
-            boolean sourceIsCursor)
+            RowExpression filter)
     {
-        MethodDefinition filterMethod;
-        if (sourceIsCursor) {
-            filterMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
-                    a(PUBLIC),
-                    "filter",
-                    type(boolean.class),
-                    arg("cursor", RecordCursor.class));
-        }
-        else {
-            filterMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
-                    a(PUBLIC),
-                    "filter",
-                    type(boolean.class),
-                    ImmutableList.<NamedParameterDefinition>builder()
-                            .add(arg("position", int.class))
-                            .addAll(toBlockParameters(getInputChannels(filter)))
-                            .build());
-        }
+        MethodDefinition filterMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
+                a(PUBLIC),
+                "filter",
+                type(boolean.class),
+                ImmutableList.<NamedParameterDefinition>builder()
+                        .add(arg("session", ConnectorSession.class))
+                        .add(arg("input", Object.class))
+                        .add(arg("position", int.class))
+                        .build());
 
         filterMethod.comment("Filter: %s", filter.toString());
 
-        filterMethod.getCompilerContext().declareVariable(type(boolean.class), "wasNull");
-        Block getSessionByteCode = new Block(filterMethod.getCompilerContext()).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
-        ByteCodeNode body = compileExpression(callSiteBinder, filter, sourceIsCursor, filterMethod.getCompilerContext(), getSessionByteCode);
+        CompilerContext context = filterMethod.getCompilerContext();
+
+        context.declareVariable(type(boolean.class), "wasNull");
+
+        ByteCodeNode body = compileExpression(
+                callSiteBinder,
+                filter,
+                context,
+                context.getVariable("session").getValue());
 
         LabelNode end = new LabelNode("end");
         filterMethod
@@ -650,51 +365,39 @@ public class ExpressionCompiler
     private ByteCodeNode compileExpression(
             CallSiteBinder callSiteBinder,
             RowExpression expression,
-            boolean sourceIsCursor,
             CompilerContext context,
-            Block getSessionByteCode)
+            ByteCodeNode getSessionByteCode)
     {
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, getSessionByteCode, metadata.getFunctionRegistry(), sourceIsCursor);
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, getSessionByteCode, metadata.getFunctionRegistry());
         return expression.accept(visitor, context);
     }
 
-    private Class<?> generateProjectMethod(
+    private void generateProjectMethod(
             CallSiteBinder callSiteBinder,
             ClassDefinition classDefinition,
             String methodName,
-            RowExpression projection,
-            boolean sourceIsCursor)
+            RowExpression projection)
     {
-        MethodDefinition projectionMethod;
-        if (sourceIsCursor) {
-            projectionMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
-                    a(PUBLIC),
-                    methodName,
-                    type(void.class),
-                    arg("cursor", RecordCursor.class),
-                    arg("output", BlockBuilder.class));
-        }
-        else {
-            ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-            parameters.add(arg("position", int.class));
-            parameters.addAll(toBlockParameters(getInputChannels(projection)));
-            parameters.add(arg("output", BlockBuilder.class));
-
-            projectionMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
-                    a(PUBLIC),
-                    methodName,
-                    type(void.class),
-                    parameters.build());
-        }
+        MethodDefinition projectionMethod = classDefinition.declareMethod(new CompilerContext(BOOTSTRAP_METHOD),
+                a(PUBLIC),
+                methodName,
+                type(void.class),
+                ImmutableList.of(arg("session", ConnectorSession.class),
+                        arg("input", Object.class),
+                        arg("position", int.class),
+                        arg("output", BlockBuilder.class)));
 
         projectionMethod.comment("Projection: %s", projection.toString());
 
         // generate body code
         CompilerContext context = projectionMethod.getCompilerContext();
         context.declareVariable(type(boolean.class), "wasNull");
-        Block getSessionByteCode = new Block(context).pushThis().getField(classDefinition.getType(), "session", type(ConnectorSession.class));
 
-        ByteCodeNode body = compileExpression(callSiteBinder, projection, sourceIsCursor, context, getSessionByteCode);
+        ByteCodeNode body = compileExpression(
+                callSiteBinder,
+                projection,
+                context,
+                context.getVariable("session").getValue());
 
         Type projectionType = projection.getType();
         projectionMethod
@@ -741,55 +444,6 @@ public class ExpressionCompiler
                 .comment("if the result was null, appendNull; otherwise append the value")
                 .append(new IfStatement(context, new Block(context).getVariable("wasNull"), nullBlock, notNullBlock))
                 .ret();
-
-        return projectionType.getJavaType();
-    }
-
-    private static List<Integer> getInputChannels(RowExpression expression)
-    {
-        return getInputChannels(ImmutableList.of(expression));
-    }
-
-    private static List<Integer> getInputChannels(Iterable<RowExpression> expressions)
-    {
-        TreeSet<Integer> channels = new TreeSet<>();
-        for (RowExpression expression : Expressions.subExpressions(expressions)) {
-            if (expression instanceof InputReferenceExpression) {
-                channels.add(((InputReferenceExpression) expression).getField());
-            }
-        }
-        return ImmutableList.copyOf(channels);
-    }
-
-    private static class TypedOperatorClass
-    {
-        private final Class<? extends Operator> operatorClass;
-        private final List<Type> types;
-
-        private TypedOperatorClass(Class<? extends Operator> operatorClass, List<Type> types)
-        {
-            this.operatorClass = operatorClass;
-            this.types = types;
-        }
-
-        private Class<? extends Operator> getOperatorClass()
-        {
-            return operatorClass;
-        }
-
-        private List<Type> getTypes()
-        {
-            return types;
-        }
-    }
-
-    private static List<NamedParameterDefinition> toBlockParameters(List<Integer> inputChannels)
-    {
-        ImmutableList.Builder<NamedParameterDefinition> parameters = ImmutableList.builder();
-        for (int channel : inputChannels) {
-            parameters.add(arg("block_" + channel, com.facebook.presto.spi.block.Block.class));
-        }
-        return parameters.build();
     }
 
     private <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
@@ -803,10 +457,12 @@ public class ExpressionCompiler
         ClassInfoLoader classInfoLoader = ClassInfoLoader.createClassInfoLoader(classDefinitions, classLoader);
 
         if (DUMP_BYTE_CODE_TREE) {
-            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(System.out);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            DumpByteCodeVisitor dumpByteCode = new DumpByteCodeVisitor(new PrintStream(out));
             for (ClassDefinition classDefinition : classDefinitions) {
                 dumpByteCode.visitClass(classDefinition);
             }
+            System.out.println(new String(out.toByteArray(), StandardCharsets.UTF_8));
         }
 
         Map<String, byte[]> byteCodes = new LinkedHashMap<>();
@@ -858,17 +514,17 @@ public class ExpressionCompiler
         }
     }
 
-    private static final class OperatorCacheKey
+    private static final class CacheKey
     {
         private final RowExpression filter;
         private final List<RowExpression> projections;
-        private final PlanNodeId sourceId;
+        private final Object uniqueKey;
 
-        private OperatorCacheKey(RowExpression filter, List<RowExpression> projections, PlanNodeId sourceId)
+        private CacheKey(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
         {
             this.filter = filter;
+            this.uniqueKey = uniqueKey;
             this.projections = ImmutableList.copyOf(projections);
-            this.sourceId = sourceId;
         }
 
         private RowExpression getFilter()
@@ -881,15 +537,10 @@ public class ExpressionCompiler
             return projections;
         }
 
-        private PlanNodeId getSourceId()
-        {
-            return sourceId;
-        }
-
         @Override
         public int hashCode()
         {
-            return Objects.hashCode(filter, projections, sourceId);
+            return Objects.hashCode(filter, projections, uniqueKey);
         }
 
         @Override
@@ -901,10 +552,10 @@ public class ExpressionCompiler
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            OperatorCacheKey other = (OperatorCacheKey) obj;
+            CacheKey other = (CacheKey) obj;
             return Objects.equal(this.filter, other.filter) &&
-                    Objects.equal(this.sourceId, other.sourceId) &&
-                    Objects.equal(this.projections, other.projections);
+                    Objects.equal(this.projections, other.projections) &&
+                    Objects.equal(this.uniqueKey, other.uniqueKey);
         }
 
         @Override
@@ -913,156 +564,8 @@ public class ExpressionCompiler
             return toStringHelper(this)
                     .add("filter", filter)
                     .add("projections", projections)
-                    .add("sourceId", sourceId)
+                    .add("uniqueKey", uniqueKey)
                     .toString();
-        }
-    }
-
-    private static class FilterAndProjectOperatorFactoryFactory
-    {
-        private final Constructor<? extends Operator> constructor;
-        private final List<Type> types;
-
-        public FilterAndProjectOperatorFactoryFactory(Constructor<? extends Operator> constructor, List<Type> types)
-        {
-            this.constructor = checkNotNull(constructor, "constructor is null");
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        }
-
-        public OperatorFactory create(int operatorId)
-        {
-            return new FilterAndProjectOperatorFactory(constructor, operatorId, types);
-        }
-    }
-
-    private static class FilterAndProjectOperatorFactory
-            implements OperatorFactory
-    {
-        private final Constructor<? extends Operator> constructor;
-        private final int operatorId;
-        private final List<Type> types;
-        private boolean closed;
-
-        public FilterAndProjectOperatorFactory(
-                Constructor<? extends Operator> constructor,
-                int operatorId,
-                List<Type> types)
-        {
-            this.constructor = checkNotNull(constructor, "constructor is null");
-            this.operatorId = operatorId;
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
-        public Operator createOperator(DriverContext driverContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, constructor.getDeclaringClass().getSimpleName());
-            try {
-                return constructor.newInstance(operatorContext, types);
-            }
-            catch (InvocationTargetException e) {
-                throw Throwables.propagate(e.getCause());
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
-        }
-    }
-
-    private static class ScanFilterAndProjectOperatorFactoryFactory
-    {
-        private final Constructor<? extends SourceOperator> constructor;
-        private final PlanNodeId sourceId;
-        private final List<Type> types;
-
-        public ScanFilterAndProjectOperatorFactoryFactory(
-                Constructor<? extends SourceOperator> constructor,
-                PlanNodeId sourceId,
-                List<Type> types)
-        {
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.constructor = checkNotNull(constructor, "constructor is null");
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        }
-
-        public SourceOperatorFactory create(int operatorId, DataStreamProvider dataStreamProvider, List<ColumnHandle> columns)
-        {
-            return new ScanFilterAndProjectOperatorFactory(constructor, operatorId, sourceId, dataStreamProvider, columns, types);
-        }
-    }
-
-    private static class ScanFilterAndProjectOperatorFactory
-            implements SourceOperatorFactory
-    {
-        private final Constructor<? extends SourceOperator> constructor;
-        private final int operatorId;
-        private final PlanNodeId sourceId;
-        private final DataStreamProvider dataStreamProvider;
-        private final List<ColumnHandle> columns;
-        private final List<Type> types;
-        private boolean closed;
-
-        public ScanFilterAndProjectOperatorFactory(
-                Constructor<? extends SourceOperator> constructor,
-                int operatorId,
-                PlanNodeId sourceId,
-                DataStreamProvider dataStreamProvider,
-                List<ColumnHandle> columns,
-                List<Type> types)
-        {
-            this.constructor = checkNotNull(constructor, "constructor is null");
-            this.operatorId = operatorId;
-            this.sourceId = checkNotNull(sourceId, "sourceId is null");
-            this.dataStreamProvider = checkNotNull(dataStreamProvider, "dataStreamProvider is null");
-            this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
-            this.types = ImmutableList.copyOf(checkNotNull(types, "types is null"));
-        }
-
-        @Override
-        public PlanNodeId getSourceId()
-        {
-            return sourceId;
-        }
-
-        @Override
-        public List<Type> getTypes()
-        {
-            return types;
-        }
-
-        @Override
-        public SourceOperator createOperator(DriverContext driverContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, constructor.getDeclaringClass().getSimpleName());
-            try {
-                return constructor.newInstance(operatorContext, sourceId, dataStreamProvider, columns, types);
-            }
-            catch (InvocationTargetException e) {
-                throw Throwables.propagate(e.getCause());
-            }
-            catch (ReflectiveOperationException e) {
-                throw Throwables.propagate(e);
-            }
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
         }
     }
 }

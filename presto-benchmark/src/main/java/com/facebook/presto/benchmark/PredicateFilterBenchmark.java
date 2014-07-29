@@ -16,8 +16,10 @@ package com.facebook.presto.benchmark;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.FilterFunction;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
@@ -41,8 +43,8 @@ public class PredicateFilterBenchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, "orders", "totalprice");
         FilterAndProjectOperatorFactory filterAndProjectOperator = new FilterAndProjectOperatorFactory(
                 1,
-                new DoubleFilter(50000.00),
-                ImmutableList.of(singleColumn(DOUBLE, 0)));
+                new PageProcessor(new DoubleFilter(50000.00), ImmutableList.of(singleColumn(DOUBLE, 0))),
+                ImmutableList.<Type>of(DOUBLE));
 
         return ImmutableList.of(tableScanOperator, filterAndProjectOperator);
     }

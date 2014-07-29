@@ -46,13 +46,7 @@ public final class Bootstrap
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
         try {
-            MethodHandle handle = callerLookup.findStaticGetter(callerLookup.lookupClass(), "callSites", Map.class);
-            Map<Long, MethodHandle> bindings = (Map<Long, MethodHandle>) handle.invokeExact();
-            checkNotNull(bindings, "'callSites' field in %s is null", callerLookup.lookupClass().getName());
-
-            MethodHandle method = bindings.get(bindingId);
-            checkArgument(method != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
-            return new ConstantCallSite(method);
+            return new ConstantCallSite(getMethodHandleForConstant(callerLookup, name, type, bindingId));
         }
         catch (Throwable e) {
             if (e instanceof InterruptedException) {
@@ -60,5 +54,17 @@ public final class Bootstrap
             }
             throw Throwables.propagate(e);
         }
+    }
+
+    public static MethodHandle getMethodHandleForConstant(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
+            throws Throwable
+    {
+        MethodHandle handle = callerLookup.findStaticGetter(callerLookup.lookupClass(), "callSites", Map.class);
+        Map<Long, MethodHandle> bindings = (Map<Long, MethodHandle>) handle.invokeExact();
+        checkNotNull(bindings, "'callSites' field in %s is null", callerLookup.lookupClass().getName());
+
+        MethodHandle method = bindings.get(bindingId);
+        checkArgument(method != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+        return method;
     }
 }
