@@ -16,7 +16,21 @@
         <dep.jmh.version>0.9.4</dep.jmh.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>truffle</id>
+            <releases>true</releases>
+            <url>http://lafo.ssw.uni-linz.ac.at/nexus/content/repositories/releases</url>
+        </repository>
+    </repositories>
+
     <dependencies>
+        <dependency>
+            <groupId>com.oracle</groupId>
+            <artifactId>truffle</artifactId>
+            <version>0.3</version>
+        </dependency>
+
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>

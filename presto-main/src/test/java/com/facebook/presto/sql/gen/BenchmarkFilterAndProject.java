@@ -8,6 +8,8 @@ import com.facebook.presto.operator.PageBuilder;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.gen.truffle.TruffleFilterAndProjectCompiler;
+import com.facebook.presto.sql.gen.truffle.TruffleFilterAndProjectCompiler.TruffleFilterAndProject;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
@@ -56,26 +58,29 @@ public class BenchmarkFilterAndProject
     private static final Slice MIN_SHIP_DATE = Slices.copiedBuffer("1994-01-01", UTF_8);
     private static final Slice MAX_SHIP_DATE = Slices.copiedBuffer("1995-01-01", UTF_8);
 
-
     private Page inputPage;
     private FilterAndProject handFilterAndProject;
     private FilterAndProject byteCodeFilterAndProject;
+    private TruffleFilterAndProject truffleFilterAndProject;
 
     @Setup
     public void setup()
     {
+        MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
+
+        truffleFilterAndProject = TruffleFilterAndProjectCompiler.compile(metadata, FILTER, ImmutableList.of(PROJECT));
+
         inputPage = createInputPage();
 
         handFilterAndProject = new Tpch1FilterAndProject();
 
-        MetadataManager metadata = new MetadataManager(new FeaturesConfig(), new TypeRegistry());
         byteCodeFilterAndProject = new ExpressionCompiler(metadata).compile(FILTER, ImmutableList.of(PROJECT), "unique");
     }
 
     @Benchmark
-    public Page byHand()
+    public Page truffle()
     {
-        return execute(inputPage, handFilterAndProject);
+        return execute(inputPage, truffleFilterAndProject);
     }
 
     @Benchmark
@@ -84,9 +89,22 @@ public class BenchmarkFilterAndProject
         return execute(inputPage, byteCodeFilterAndProject);
     }
 
+    @Benchmark
+    public Page byHand()
+    {
+        return execute(inputPage, handFilterAndProject);
+    }
+
     public static void main(String[] args)
             throws RunnerException
     {
+        BenchmarkFilterAndProject benchmarkFilterAndProject = new BenchmarkFilterAndProject();
+        benchmarkFilterAndProject.setup();
+        // verify we are getting the same values from the different implementations
+        verify(benchmarkFilterAndProject.byHand());
+        verify(benchmarkFilterAndProject.byteCode());
+        verify(benchmarkFilterAndProject.truffle());
+
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkFilterAndProject.class.getSimpleName() + ".*")
@@ -94,26 +112,15 @@ public class BenchmarkFilterAndProject
 
         new Runner(options).run();
     }
-//    public static void main(String[] args)
-//    {
-//
-//
-//        long positions = 0;
-//        for (int i = 0; i < 100; i++) {
-//            Page build = execute(inputPage, handFilterAndProject);
-//            positions += build.getPositionCount();
-//        }
-//
-//        System.out.println(positions);
-//
-//
-//        positions = 0;
-//        for (int i = 0; i < 100; i++) {
-//            Page build = execute(inputPage, byteCodeFilterAndProject);
-//            positions += build.getPositionCount();
-//        }
-//        System.out.println(positions);
-//    }
+
+    public static void verify(Page page)
+    {
+        System.out.printf("%d %s %s %s%n",
+                page.getChannelCount(),
+                page.getBlock(0).getDouble(0, 0),
+                page.getBlock(0).getDouble(page.getPositionCount() / 2, 0),
+                page.getBlock(0).getDouble(page.getPositionCount() - 1, 0));
+    }
 
     public static Page execute(Page inputPage, FilterAndProject filterAndProject)
     {
@@ -185,7 +192,7 @@ public class BenchmarkFilterAndProject
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression FILTER = new CallExpression(
+    public static final RowExpression FILTER = new CallExpression(
             new Signature("AND", BOOLEAN),
             ImmutableList.<RowExpression>of(
                     new CallExpression(
@@ -232,7 +239,7 @@ public class BenchmarkFilterAndProject
                             ))
             ));
 
-    private static final RowExpression PROJECT = new CallExpression(
+    public static final RowExpression PROJECT = new CallExpression(
             new Signature(OperatorType.MULTIPLY.name(), DOUBLE, DOUBLE, DOUBLE),
             ImmutableList.<RowExpression>of(
                     new InputReferenceExpression(EXTENDED_PRICE, DOUBLE),
