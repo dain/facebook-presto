@@ -24,6 +24,7 @@ import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import org.apache.hadoop.hive.metastore.api.Database;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 
 import java.io.File;
@@ -34,12 +35,14 @@ import static com.facebook.presto.tests.QueryAssertions.copyTable;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private static final Logger log = Logger.get("TestQueries");
     private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
+    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
 
     public TestHiveIntegrationSmokeTest()
             throws Exception
@@ -56,6 +59,8 @@ public class TestHiveIntegrationSmokeTest
     private static QueryRunner createQueryRunner()
             throws Exception
     {
+        assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
+
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 4);
 
         try {
@@ -74,6 +79,7 @@ public class TestHiveIntegrationSmokeTest
             Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                     .put("hive.metastore.uri", "thrift://localhost:8080")
                     .put("hive.allow-drop-table", "true")
+                    .put("hive.time-zone", TIME_ZONE.getID())
                     .build();
             queryRunner.createCatalog("hive", "hive", hiveProperties);
 

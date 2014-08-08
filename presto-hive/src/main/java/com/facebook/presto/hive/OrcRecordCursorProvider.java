@@ -29,6 +29,8 @@ import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.joda.time.DateTimeZone;
 
+import javax.inject.Inject;
+
 import java.util.List;
 import java.util.Properties;
 
@@ -38,6 +40,25 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class OrcRecordCursorProvider
         implements HiveRecordCursorProvider
 {
+    private final boolean enabled;
+
+    @Inject
+    public OrcRecordCursorProvider(HiveClientConfig config)
+    {
+        //noinspection deprecation
+        this(!config.isOrcOptimizedReaderEnabled());
+    }
+
+    public OrcRecordCursorProvider()
+    {
+        this(true);
+    }
+
+    public OrcRecordCursorProvider(boolean enabled)
+    {
+        this.enabled = enabled;
+    }
+
     @Override
     public Optional<HiveRecordCursor> createHiveRecordCursor(
             String clientId,
@@ -52,6 +73,10 @@ public class OrcRecordCursorProvider
             TupleDomain<HiveColumnHandle> tupleDomain,
             DateTimeZone hiveStorageTimeZone)
     {
+        if (!enabled) {
+            return Optional.absent();
+        }
+
         @SuppressWarnings("deprecation")
         Deserializer deserializer = getDeserializer(schema);
         if (!(deserializer instanceof OrcSerde)) {

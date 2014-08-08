@@ -81,12 +81,17 @@ public class HiveClientModule
         discoveryBinder(binder).bindSelector("hive-metastore");
 
         Multibinder<HiveRecordCursorProvider> recordCursorProviderBinder = Multibinder.newSetBinder(binder, HiveRecordCursorProvider.class);
-        recordCursorProviderBinder.addBinding().to(OrcRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(ParquetRecordCursorProvider.class).in(Scopes.SINGLETON);
+        recordCursorProviderBinder.addBinding().to(OrcRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(DwrfRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(ColumnarTextHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(ColumnarBinaryHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
         recordCursorProviderBinder.addBinding().to(GenericHiveRecordCursorProvider.class).in(Scopes.SINGLETON);
+
+        binder.bind(ConnectorDataStreamProvider.class).to(HiveDataStreamProvider.class).in(Scopes.SINGLETON);
+
+        Multibinder<HiveDataStreamFactory> dataStreamFactoryBinder = Multibinder.newSetBinder(binder, HiveDataStreamFactory.class);
+        dataStreamFactoryBinder.addBinding().to(OrcDataStreamFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorDataStreamProvider.class).to(HiveDataStreamProvider.class).in(Scopes.SINGLETON);
     }

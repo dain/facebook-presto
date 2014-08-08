@@ -32,7 +32,6 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
-import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSink;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -70,6 +69,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.hive.HiveBucketing.HiveBucket;
+import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_DATA_STREAM_FACTORIES;
 import static com.facebook.presto.hive.HiveTestUtils.DEFAULT_HIVE_RECORD_CURSOR_PROVIDER;
 import static com.facebook.presto.hive.HiveTestUtils.close;
 import static com.facebook.presto.hive.HiveTestUtils.creteOperatorContext;
@@ -279,7 +279,7 @@ public abstract class AbstractTestHiveClient
         splitManager = client;
         recordSinkProvider = client;
 
-        dataStreamProvider = new HiveDataStreamProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER);
+        dataStreamProvider = new HiveDataStreamProvider(hiveClientConfig, hdfsEnvironment, DEFAULT_HIVE_RECORD_CURSOR_PROVIDER, DEFAULT_HIVE_DATA_STREAM_FACTORIES);
     }
 
     @Test
@@ -688,7 +688,7 @@ public abstract class AbstractTestHiveClient
             OperatorContext operatorContext = creteOperatorContext(SESSION, executor);
             Operator dataStream = dataStreamProvider.createNewDataStream(operatorContext, hiveSplit, columnHandles);
             try {
-                assertOppertorTypes(dataStream, tableMetadata.getColumns());
+                assertOperatorTypes(dataStream, tableMetadata.getColumns());
                 MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
 
                 assertDataStreamType(dataStream, fileType);
@@ -880,8 +880,7 @@ public abstract class AbstractTestHiveClient
         assertGetRecords("presto_test_types_rcbinary", "rcbinary");
     }
 
-    // ORC reader requires JVM timezone to be the same as Hive storage timezone
-    @Test(enabled = false)
+    @Test
     public void testTypesOrc()
             throws Exception
     {
@@ -1243,7 +1242,7 @@ public abstract class AbstractTestHiveClient
         OperatorContext operatorContext = creteOperatorContext(SESSION, executor);
         Operator dataStream = dataStreamProvider.createNewDataStream(operatorContext, hiveSplit, columnHandles);
         try {
-            assertOppertorTypes(dataStream, tableMetadata.getColumns());
+            assertOperatorTypes(dataStream, tableMetadata.getColumns());
             MaterializedResult result = materializeSourceDataStream(SESSION, dataStream);
 
             assertDataStreamType(dataStream, fileType);
@@ -1457,9 +1456,14 @@ public abstract class AbstractTestHiveClient
         return splits.build();
     }
 
-    private static void assertRecordCursorType(RecordCursor cursor, String fileType)
+    private static void assertDataStreamType(Operator dataStream, String fileType)
     {
-        assertInstanceOf(cursor, recordCursorType(fileType), fileType);
+        if (dataStream instanceof RecordProjectOperator) {
+            assertInstanceOf(((RecordProjectOperator) dataStream).getCursor(), recordCursorType(fileType), fileType);
+        }
+        else {
+            assertInstanceOf(dataStream, dataStreamType(fileType), fileType);
+        }
     }
 
     private static Class<? extends HiveRecordCursor> recordCursorType(String fileType)
@@ -1471,25 +1475,23 @@ public abstract class AbstractTestHiveClient
             case "rcfile-binary":
             case "rcbinary":
                 return ColumnarBinaryHiveRecordCursor.class;
-            case "orc":
-                return OrcHiveRecordCursor.class;
             case "parquet":
                 return ParquetHiveRecordCursor.class;
         }
         return GenericHiveRecordCursor.class;
     }
 
-    private static void assertDataStreamType(Operator dataStream, String fileType)
+    private static Class<? extends Operator> dataStreamType(String fileType)
     {
-        if (dataStream instanceof RecordProjectOperator) {
-            assertRecordCursorType(((RecordProjectOperator) dataStream).getCursor(), fileType);
+        switch (fileType) {
+            case "orc":
+            case "dwrf":
+                return OrcDataStream.class;
         }
-        else {
-            fail("Unexpected dataStream operator type for file type " + fileType);
-        }
+        throw new AssertionError("Filed type " + fileType + " does not use a data stream");
     }
 
-    private static void assertOppertorTypes(Operator cursor, List<ColumnMetadata> schema)
+    private static void assertOperatorTypes(Operator cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
             ColumnMetadata column = schema.get(columnIndex);
