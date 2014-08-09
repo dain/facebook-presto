@@ -123,6 +123,7 @@ public class OrcDataStreamFactory
                 operatorContext,
                 recordReader,
                 partitionKeys,
-                columns);
+                columns,
+                hiveStorageTimeZone);
     }
 }
