@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
+import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnStatistics;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto.StripeStatistics;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
@@ -91,8 +92,8 @@ public class OrcRecordReader
         for (int i = 0; i < fileStripes.size(); i++) {
             StripeInformation stripe = fileStripes.get(i);
             if (splitOffset <= stripe.getOffset() && stripe.getOffset() < splitEndOffset) {
-                TupleDomain<HiveColumnHandle> stripeDomain = extractDomain(columnHandleStreamIndex, stripe.getNumberOfRows(), stripeStats.get(i).getColStatsList());
-                if (tupleDomain.overlaps(stripeDomain)) {
+                boolean overlaps = doesStripOverlapTupleDomain(stripe, stripeStats, tupleDomain, columnHandleStreamIndex, i);
+                if (overlaps) {
                     stripes.add(stripe);
                     totalRowCount += stripe.getNumberOfRows();
                 }
@@ -104,6 +105,22 @@ public class OrcRecordReader
         stripeReader = new StripeReader(file, compressionKind, types, bufferSize, includedStreams, rowIndexStride, columnHandleStreamIndex, tupleDomain);
 
         streamReaders = createStreamReaders(path, types, sessionTimeZone, includedStreams);
+    }
+
+    private static boolean doesStripOverlapTupleDomain(StripeInformation stripe,
+            List<StripeStatistics> stripeStats,
+            TupleDomain<HiveColumnHandle> tupleDomain,
+            Map<HiveColumnHandle, Integer> columnHandleStreamIndex,
+            int i)
+    {
+        // if there are no stats, include the column
+        if (stripeStats.size() <= i) {
+            return true;
+        }
+
+        List<ColumnStatistics> columnStats = stripeStats.get(i).getColStatsList();
+        TupleDomain<HiveColumnHandle> stripeDomain = extractDomain(columnHandleStreamIndex, stripe.getNumberOfRows(), columnStats);
+        return tupleDomain.overlaps(stripeDomain);
     }
 
     public long getPosition()
