@@ -16,6 +16,7 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
 import com.facebook.presto.hive.orc.metadata.CompressionKind;
 import com.facebook.presto.hive.orc.metadata.Type;
+import com.facebook.presto.hive.orc.metadata.Type.Kind;
 import com.facebook.presto.hive.orc.reader.StreamSources;
 import com.facebook.presto.hive.orc.stream.StreamSource;
 import com.google.common.base.Function;
@@ -35,14 +36,16 @@ public class StreamLayout
     private final int groupId;
     private final Type.Kind type;
     private final ColumnEncoding.Kind encoding;
+    private final boolean usesVInt;
     private final CompressionKind compressionKind;
     private final DiskRange diskRange;
     private final List<Integer> offsetPositions;
 
     public StreamLayout(StreamId streamId,
             int groupId,
-            Type.Kind type,
+            Kind type,
             ColumnEncoding.Kind encoding,
+            boolean usesVInt,
             CompressionKind compressionKind,
             DiskRange diskRange,
             List<Integer> offsetPositions)
@@ -51,6 +54,7 @@ public class StreamLayout
         this.groupId = groupId;
         this.type = checkNotNull(type, "type is null");
         this.encoding = checkNotNull(encoding, "encoding is null");
+        this.usesVInt = usesVInt;
         this.compressionKind = checkNotNull(compressionKind, "compressionKind is null");
         this.diskRange = checkNotNull(diskRange, "diskRange is null");
         this.offsetPositions = ImmutableList.copyOf(checkNotNull(offsetPositions, "offsetPositions is null"));
@@ -103,7 +107,7 @@ public class StreamLayout
         }
 
         Slice slice = stripeSlice.slice(offset, length);
-        return StreamSources.createStreamSource(streamId, slice, type, encoding, compressionKind, offsetPositions, bufferSize);
+        return StreamSources.createStreamSource(streamId, slice, type, encoding, usesVInt, compressionKind, offsetPositions, bufferSize);
     }
 
     public StreamLayout mergeWith(StreamLayout otherStreamLayout)
@@ -119,7 +123,7 @@ public class StreamLayout
         checkArgument(type == otherStreamLayout.getType(), "Streams must have the same type");
         checkArgument(encoding == otherStreamLayout.getEncoding(), "Streams must have the same encoding");
         checkArgument(compressionKind == otherStreamLayout.getCompressionKind(), "Streams must have the same compression kind");
-        return new StreamLayout(streamId, groupId, type, encoding, compressionKind, diskRange.mergeWith(otherStreamLayout.getDiskRange()), offsetPositions);
+        return new StreamLayout(streamId, groupId, type, encoding, usesVInt, compressionKind, diskRange.mergeWith(otherStreamLayout.getDiskRange()), offsetPositions);
     }
 
     @Override
