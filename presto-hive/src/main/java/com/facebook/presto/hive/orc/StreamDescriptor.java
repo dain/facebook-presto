@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.hive.orc.metadata.Type;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
 
 import java.util.List;
 

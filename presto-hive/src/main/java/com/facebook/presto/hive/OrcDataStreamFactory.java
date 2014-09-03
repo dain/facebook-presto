@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.orc.OrcReader;
 import com.facebook.presto.hive.orc.OrcRecordReader;
+import com.facebook.presto.hive.orc.metadata.MetadataReader;
+import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.operator.Operator;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.spi.ConnectorSession;
@@ -81,20 +83,46 @@ public class OrcDataStreamFactory
             return Optional.absent();
         }
 
+        return Optional.of(createOrcDataStream(
+                new OrcMetadataReader(),
+                operatorContext,
+                configuration,
+                session,
+                path,
+                start,
+                length,
+                columns,
+                partitionKeys,
+                tupleDomain,
+                hiveStorageTimeZone));
+    }
+
+    public static OrcDataStream createOrcDataStream(MetadataReader metadataReader,
+            OperatorContext operatorContext,
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            List<HiveColumnHandle> columns,
+            List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> tupleDomain,
+            DateTimeZone hiveStorageTimeZone)
+    {
         OrcRecordReader recordReader;
         try {
             FileSystem fileSystem = path.getFileSystem(configuration);
-            OrcReader reader = new OrcReader(path, fileSystem);
+            OrcReader reader = new OrcReader(path, fileSystem, metadataReader);
             recordReader = reader.createRecordReader(start, length, columns, tupleDomain, hiveStorageTimeZone, DateTimeZone.forID(session.getTimeZoneKey().getId()));
         }
         catch (Exception e) {
             throw Throwables.propagate(e);
         }
 
-        return Optional.of(new OrcDataStream(
+        return new OrcDataStream(
                 operatorContext,
                 recordReader,
                 partitionKeys,
-                columns));
+                columns);
     }
 }

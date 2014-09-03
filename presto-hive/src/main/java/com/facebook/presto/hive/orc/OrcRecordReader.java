@@ -14,6 +14,14 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.orc.metadata.ColumnEncoding;
+import com.facebook.presto.hive.orc.metadata.ColumnStatistics;
+import com.facebook.presto.hive.orc.metadata.CompressionKind;
+import com.facebook.presto.hive.orc.metadata.MetadataReader;
+import com.facebook.presto.hive.orc.metadata.StripeInformation;
+import com.facebook.presto.hive.orc.metadata.StripeStatistics;
+import com.facebook.presto.hive.orc.metadata.Type;
+import com.facebook.presto.hive.orc.metadata.Type.Kind;
 import com.facebook.presto.hive.orc.reader.StreamReader;
 import com.facebook.presto.hive.orc.reader.StreamReaders;
 import com.facebook.presto.hive.orc.stream.StreamSources;
@@ -25,12 +33,6 @@ import com.google.common.primitives.Ints;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnEncoding;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.ColumnStatistics;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.CompressionKind;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.StripeStatistics;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type;
-import org.apache.hadoop.hive.ql.io.orc.OrcProto.Type.Kind;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -40,7 +42,6 @@ import java.util.Map;
 
 import static com.facebook.presto.hive.orc.OrcDomainExtractor.extractDomain;
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.hadoop.hive.ql.io.orc.OrcProto.StripeInformation;
 
 @SuppressWarnings("AccessingNonPublicFieldOfAnotherObject")
 public class OrcRecordReader
@@ -75,7 +76,8 @@ public class OrcRecordReader
             int bufferSize,
             long rowIndexStride,
             DateTimeZone hiveStorageTimeZone,
-            DateTimeZone sessionTimeZone)
+            DateTimeZone sessionTimeZone,
+            MetadataReader metadataReader)
             throws IOException
     {
         this.file = fileSystem.open(path);
@@ -105,7 +107,7 @@ public class OrcRecordReader
         this.totalRowCount = totalRowCount;
         this.stripes = stripes.build();
 
-        stripeReader = new StripeReader(file, compressionKind, types, bufferSize, includedStreams, rowIndexStride, columnHandleStreamIndex, tupleDomain);
+        stripeReader = new StripeReader(file, compressionKind, types, bufferSize, includedStreams, rowIndexStride, columnHandleStreamIndex, tupleDomain, metadataReader);
 
         streamReaders = createStreamReaders(path, types, hiveStorageTimeZone, sessionTimeZone, includedStreams);
     }
@@ -121,7 +123,7 @@ public class OrcRecordReader
             return true;
         }
 
-        List<ColumnStatistics> columnStats = stripeStats.get(i).getColStatsList();
+        List<ColumnStatistics> columnStats = stripeStats.get(i).getColumnStatistics();
         TupleDomain<HiveColumnHandle> stripeDomain = extractDomain(columnHandleStreamIndex, stripe.getNumberOfRows(), columnStats);
         return tupleDomain.overlaps(stripeDomain);
     }
@@ -243,7 +245,7 @@ public class OrcRecordReader
         Type root = types.get(0);
         for (HiveColumnHandle column : columns) {
             if (!column.isPartitionKey()) {
-                builder.put(column, root.getSubtypes(column.getHiveColumnIndex()));
+                builder.put(column, root.getFieldTypeIndex(column.getHiveColumnIndex()));
             }
         }
 
@@ -256,9 +258,9 @@ public class OrcRecordReader
 
         Type root = types.get(0);
         List<Integer> included = Lists.transform(columns, HiveColumnHandle.hiveColumnIndexGetter());
-        for (int i = 0; i < root.getSubtypesCount(); ++i) {
+        for (int i = 0; i < root.getFieldCount(); ++i) {
             if (included.contains(i)) {
-                includeStreamRecursive(types, includes, root.getSubtypes(i));
+                includeStreamRecursive(types, includes, root.getFieldTypeIndex(i));
             }
         }
 
@@ -269,9 +271,9 @@ public class OrcRecordReader
     {
         result[typeId] = true;
         Type type = types.get(typeId);
-        int children = type.getSubtypesCount();
+        int children = type.getFieldCount();
         for (int i = 0; i < children; ++i) {
-            includeStreamRecursive(types, result, type.getSubtypes(i));
+            includeStreamRecursive(types, result, type.getFieldTypeIndex(i));
         }
     }
 
@@ -280,9 +282,9 @@ public class OrcRecordReader
         List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, path).getNestedStreams();
 
         Type rowType = types.get(0);
-        StreamReader[] streamReaders = new StreamReader[rowType.getSubtypesCount()];
-        for (int fieldId = 0; fieldId < rowType.getSubtypesCount(); fieldId++) {
-            int streamId = rowType.getSubtypes(fieldId);
+        StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
+        for (int fieldId = 0; fieldId < rowType.getFieldCount(); fieldId++) {
+            int streamId = rowType.getFieldTypeIndex(fieldId);
             if (includedStreams == null || includedStreams[streamId]) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(fieldId);
                 streamReaders[fieldId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, sessionTimeZone);
@@ -301,16 +303,16 @@ public class OrcRecordReader
 
         ImmutableList.Builder<StreamDescriptor> nestedStreams = ImmutableList.builder();
         if (type.getKind() == Kind.STRUCT) {
-            for (int i = 0; i < type.getSubtypesCount(); ++i) {
-                nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldNames(i), type.getSubtypes(i), types, path));
+            for (int i = 0; i < type.getFieldCount(); ++i) {
+                nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldName(i), type.getFieldTypeIndex(i), types, path));
             }
         }
         else if (type.getKind() == Kind.LIST) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "item", type.getSubtypes(0), types, path));
+            nestedStreams.add(createStreamDescriptor(parentStreamName, "item", type.getFieldTypeIndex(0), types, path));
         }
         else if (type.getKind() == Kind.MAP) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getSubtypes(0), types, path));
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getSubtypes(1), types, path));
+            nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getFieldTypeIndex(0), types, path));
+            nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, path));
         }
         return new StreamDescriptor(parentStreamName, typeId, fieldName, type.getKind(), path, nestedStreams.build());
     }
