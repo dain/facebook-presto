@@ -18,6 +18,7 @@ import com.facebook.presto.hive.orc.LongVector;
 import com.facebook.presto.hive.orc.OrcReader;
 import com.facebook.presto.hive.orc.OrcRecordReader;
 import com.facebook.presto.hive.orc.SliceVector;
+import com.facebook.presto.hive.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
@@ -1104,7 +1105,7 @@ public final class BenchmarkLineItemCustomOrcVectorized
             HiveColumnHandle... columnHandles)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(fileSplit.getPath(), fileSystem);
+        OrcReader orcReader = new OrcReader(fileSplit.getPath(), fileSystem, new OrcMetadataReader());
         OrcRecordReader recordReader = orcReader.createRecordReader(
                 fileSplit.getStart(),
                 fileSplit.getLength(),
