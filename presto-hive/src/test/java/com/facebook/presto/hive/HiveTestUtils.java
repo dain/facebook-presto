@@ -26,8 +26,9 @@ import java.util.concurrent.ExecutorService;
 
 public final class HiveTestUtils
 {
-    public static final ImmutableSet<HiveDataStreamFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.<HiveDataStreamFactory>of(
-            new OrcDataStreamFactory());
+    public static final ImmutableSet<HiveDataStreamFactory> DEFAULT_HIVE_DATA_STREAM_FACTORIES = ImmutableSet.of(
+            new OrcDataStreamFactory(),
+            new DwrfDataStreamFactory());
 
     public static final ImmutableSet<HiveRecordCursorProvider> DEFAULT_HIVE_RECORD_CURSOR_PROVIDER = ImmutableSet.of(
             new ParquetRecordCursorProvider(),

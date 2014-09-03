@@ -92,6 +92,7 @@ public class HiveClientModule
 
         Multibinder<HiveDataStreamFactory> dataStreamFactoryBinder = Multibinder.newSetBinder(binder, HiveDataStreamFactory.class);
         dataStreamFactoryBinder.addBinding().to(OrcDataStreamFactory.class).in(Scopes.SINGLETON);
+        dataStreamFactoryBinder.addBinding().to(DwrfDataStreamFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorDataStreamProvider.class).to(HiveDataStreamProvider.class).in(Scopes.SINGLETON);
     }
