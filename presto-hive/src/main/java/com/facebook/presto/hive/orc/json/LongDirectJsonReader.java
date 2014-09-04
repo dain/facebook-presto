@@ -99,7 +99,13 @@ public class LongDirectJsonReader
             presentStream = null;
         }
 
-        dataStream = dataStreamSources.getStreamSource(streamDescriptor, DATA, LongStreamSource.class).openStream();
+        LongStreamSource dataStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, DATA, LongStreamSource.class);
+        if (dataStreamSource != null) {
+            dataStream = dataStreamSource.openStream();
+        }
+        else {
+            dataStream = null;
+        }
     }
 
     @Override

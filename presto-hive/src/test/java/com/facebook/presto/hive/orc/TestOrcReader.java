@@ -58,7 +58,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
 
@@ -115,37 +114,37 @@ import static org.testng.Assert.assertTrue;
 
 public class TestOrcReader
 {
+    private TestOrcReader()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private static final JsonCodec<Object> OBJECT_JSON_CODEC = new JsonCodecFactory().jsonCodec(Object.class);
 
-    @Test
     public void testBooleanSequence()
             throws Exception
     {
         testRoundTrip(javaBooleanObjectInspector, limit(cycle(ImmutableList.of(true, false, false)), 30_000));
     }
 
-    @Test
     public void testLongSequence()
             throws Exception
     {
         testRoundTripNumeric(intsBetween(0, 31_234));
     }
 
-    @Test
     public void testLongSequenceWithHoles()
             throws Exception
     {
         testRoundTripNumeric(skipEvery(5, intsBetween(0, 31_234)));
     }
 
-    @Test
     public void testLongDirect()
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000));
     }
 
-    @Test
     public void testLongDirect2()
             throws Exception
     {
@@ -157,21 +156,18 @@ public class TestOrcReader
         testRoundTripNumeric(values);
     }
 
-    @Test
     public void testLongShortRepeat()
             throws Exception
     {
         testRoundTripNumeric(limit(repeatEach(4, cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17))), 30_000));
     }
 
-    @Test
     public void testLongPatchedBase()
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), ImmutableList.of(30_000, 20_000))), 30_000));
     }
 
-    @Test
     public void testLongStrideDictionary()
             throws Exception
     {
@@ -188,49 +184,42 @@ public class TestOrcReader
         testRoundTrip(javaTimestampObjectInspector, transform(writeValues, intToTimestamp()), timestampToLong(), timestampToString());
     }
 
-    @Test
     public void testFloatSequence()
             throws Exception
     {
         testRoundTrip(javaFloatObjectInspector, floatSequence(0.0f, 0.1f, 30_000), floatToDouble());
     }
 
-    @Test
     public void testDoubleSequence()
             throws Exception
     {
         testRoundTrip(javaDoubleObjectInspector, doubleSequence(0, 0.1, 30_000));
     }
 
-    @Test
     public void testStringDirectSequence()
             throws Exception
     {
         testRoundTrip(javaStringObjectInspector, transform(intsBetween(0, 30_000), toStringFunction()));
     }
 
-    @Test
     public void testStringDictionarySequence()
             throws Exception
     {
         testRoundTrip(javaStringObjectInspector, limit(cycle(transform(ImmutableList.of(1, 3, 5, 7, 11, 13, 17), toStringFunction())), 30_000));
     }
 
-    @Test
     public void testStringStrideDictionary()
             throws Exception
     {
         testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")));
     }
 
-    @Test
     public void testEmptyStringSequence()
             throws Exception
     {
         testRoundTrip(javaStringObjectInspector, limit(cycle(""), 30_000));
     }
 
-    @Test
     public void testBinaryDirectSequence()
             throws Exception
     {
@@ -240,7 +229,6 @@ public class TestOrcReader
                 byteArrayToBase64());
     }
 
-    @Test
     public void testBinaryDictionarySequence()
             throws Exception
     {
@@ -250,7 +238,6 @@ public class TestOrcReader
                 byteArrayToBase64());
     }
 
-    @Test
     public void testEmptyBinarySequence()
             throws Exception
     {

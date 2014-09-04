@@ -29,9 +29,9 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.facebook.presto.hive.orc.json.JsonReaders.createJsonReader;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.LENGTH;
 import static com.facebook.presto.hive.orc.metadata.Stream.Kind.PRESENT;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ListJsonReader
         implements JsonReader
@@ -78,7 +78,10 @@ public class ListJsonReader
         }
 
         // skip non-null values
-        long elementSkipSize = lengthStream.sum(skipSize);
+        long elementSkipSize = 0;
+        if (lengthStream != null) {
+            elementSkipSize = lengthStream.sum(skipSize);
+        }
         elementReader.skip(Ints.checkedCast(elementSkipSize));
     }
 
@@ -104,7 +107,13 @@ public class ListJsonReader
             presentStream = null;
         }
 
-        lengthStream = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStreamSource.class).openStream();
+        LongStreamSource lengthStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, LENGTH, LongStreamSource.class);
+        if (lengthStreamSource != null) {
+            lengthStream = lengthStreamSource.openStream();
+        }
+        else {
+            lengthStream = null;
+        }
 
         elementReader.openRowGroup(dataStreamSources);
     }

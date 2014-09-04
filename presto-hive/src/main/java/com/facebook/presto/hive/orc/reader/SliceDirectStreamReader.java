@@ -71,7 +71,7 @@ public class SliceDirectStreamReader
     public void readBatch(Object vector)
             throws IOException
     {
-        if (lengthStream == null) {
+        if (presentStream == null && lengthStream == null) {
             openStreams();
         }
 
@@ -93,7 +93,9 @@ public class SliceDirectStreamReader
         }
         else {
             presentStream.getUnsetBits(nextBatchSize, isNullVector);
-            lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
+            if (lengthStream != null) {
+                lengthStream.nextIntVector(nextBatchSize, lengthVector, isNullVector);
+            }
         }
 
         int totalLength = 0;
@@ -130,7 +132,9 @@ public class SliceDirectStreamReader
             }
         }
 
-        lengthStream = lengthStreamSource.openStream();
+        if (lengthStreamSource != null) {
+            lengthStream = lengthStreamSource.openStream();
+        }
 
         if (dataByteSource != null) {
             dataStream = dataByteSource.openStream();
@@ -160,7 +164,7 @@ public class SliceDirectStreamReader
             throws IOException
     {
         presentStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, PRESENT, BooleanStreamSource.class);
-        lengthStreamSource = dataStreamSources.getStreamSource(streamDescriptor, LENGTH, LongStreamSource.class);
+        lengthStreamSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, LENGTH, LongStreamSource.class);
         dataByteSource = dataStreamSources.getStreamSourceIfPresent(streamDescriptor, DATA, ByteArrayStreamSource.class);
 
         skipSize = 0;
