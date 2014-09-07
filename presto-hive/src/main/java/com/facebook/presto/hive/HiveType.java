@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.spi.type.DateType;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.TimestampType;
 import com.facebook.presto.spi.type.Type;
@@ -44,6 +45,7 @@ import static org.apache.hadoop.hive.serde.Constants.STRING_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.STRUCT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TIMESTAMP_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.Constants.TINYINT_TYPE_NAME;
+import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
 import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 public enum HiveType
@@ -57,6 +59,7 @@ public enum HiveType
     DOUBLE(DoubleType.DOUBLE, DOUBLE_TYPE_NAME, PrimitiveCategory.DOUBLE),
     STRING(VarcharType.VARCHAR, STRING_TYPE_NAME, PrimitiveCategory.STRING),
     TIMESTAMP(TimestampType.TIMESTAMP, TIMESTAMP_TYPE_NAME, PrimitiveCategory.TIMESTAMP),
+    DATE(DateType.DATE, DATE_TYPE_NAME, PrimitiveCategory.DATE),
     BINARY(VarbinaryType.VARBINARY, BINARY_TYPE_NAME, PrimitiveCategory.BINARY),
     LIST(VarcharType.VARCHAR, LIST_TYPE_NAME, null),
     MAP(VarcharType.VARCHAR, MAP_TYPE_NAME, null),

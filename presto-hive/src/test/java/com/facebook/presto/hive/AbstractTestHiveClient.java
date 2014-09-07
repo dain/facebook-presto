@@ -66,6 +66,7 @@ import static com.facebook.presto.hive.HiveUtil.partitionIdGetter;
 import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
@@ -1232,7 +1233,6 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
-                /* TODO: enable these tests when the types are supported
                 // DATE
                 index = columnIndex.get("t_date");
                 if (index != null) {
@@ -1240,11 +1240,12 @@ public abstract class AbstractTestHiveClient
                         assertTrue(cursor.isNull(index));
                     }
                     else {
-                        long millis = new DateTime(2013, 8, 9, 0, 0, 0, timeZone).getMillis();
+                        long millis = new DateTime(2013, 8, 9, 0, 0, 0, DateTimeZone.UTC).getMillis();
                         assertEquals(cursor.getLong(index), millis);
                     }
                 }
 
+                /* TODO: enable these tests when the types are supported
                 // VARCHAR(50)
                 index = columnIndex.get("t_varchar");
                 if (index != null) {
@@ -1410,6 +1411,9 @@ public abstract class AbstractTestHiveClient
                     }
                 }
                 else if (TIMESTAMP.equals(column.getType())) {
+                    cursor.getLong(columnIndex);
+                }
+                else if (DATE.equals(column.getType())) {
                     cursor.getLong(columnIndex);
                 }
                 else {
