@@ -241,6 +241,7 @@ public abstract class AbstractTestHiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 false,
                 true,
+                true,
                 hiveClientConfig.getHiveStorageFormat(),
                 false);
 

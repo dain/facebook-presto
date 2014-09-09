@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class OrcRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -54,6 +55,10 @@ public class OrcRecordCursorProvider
         if (!(deserializer instanceof OrcSerde)) {
             return Optional.absent();
         }
+
+        checkArgument(hiveStorageTimeZone.equals(DateTimeZone.getDefault()),
+                "To read an ORC file, your JVM time zone must match the Hive storage time zone. Add -Duser.timezone=%s to your JVM arguments",
+                hiveStorageTimeZone.getID());
 
         RecordReader recordReader;
         try {

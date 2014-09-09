@@ -43,6 +43,7 @@ import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveUtil.getDeserializer;
 import static com.facebook.presto.hive.HiveUtil.getTableObjectInspector;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.all;
 
 public class DwrfRecordCursorProvider
@@ -66,6 +67,10 @@ public class DwrfRecordCursorProvider
         if (!(deserializer instanceof OrcSerde)) {
             return Optional.absent();
         }
+
+        checkArgument(hiveStorageTimeZone.equals(DateTimeZone.getDefault()),
+                "To read an ORC file, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments",
+                hiveStorageTimeZone.getID());
 
         StructObjectInspector rowInspector = getTableObjectInspector(schema);
         if (!all(rowInspector.getAllStructFieldRefs(), isSupportedDwrfType())) {

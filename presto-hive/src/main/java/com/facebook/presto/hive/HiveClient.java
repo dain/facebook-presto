@@ -153,6 +153,7 @@ public class HiveClient
     private final int maxPartitionBatchSize;
     private final boolean allowDropTable;
     private final boolean allowRenameTable;
+    private final boolean allowBrokenWrites;
     private final HiveMetastore metastore;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -193,6 +194,7 @@ public class HiveClient
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getAllowDropTable(),
                 hiveClientConfig.getAllowRenameTable(),
+                hiveClientConfig.getAllowBrokenWrites(),
                 hiveClientConfig.getHiveStorageFormat(),
                 false);
     }
@@ -214,6 +216,7 @@ public class HiveClient
             int maxInitialSplits,
             boolean allowDropTable,
             boolean allowRenameTable,
+            boolean allowBrokenWrites,
             HiveStorageFormat hiveStorageFormat,
             boolean recursiveDfsWalkerEnabled)
     {
@@ -229,6 +232,7 @@ public class HiveClient
         this.maxInitialSplits = maxInitialSplits;
         this.allowDropTable = allowDropTable;
         this.allowRenameTable = allowRenameTable;
+        this.allowBrokenWrites = allowBrokenWrites;
 
         this.metastore = checkNotNull(metastore, "metastore is null");
         this.hdfsEnvironment = checkNotNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -241,6 +245,13 @@ public class HiveClient
 
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.hiveStorageFormat = hiveStorageFormat;
+
+        if (!allowBrokenWrites && !timeZone.equals(DateTimeZone.getDefault())) {
+            log.warn("Hive writes are disabled. " +
+                            "To write data to Hive, your JVM timezone must match the Hive storage timezone. " +
+                            "Add -Duser.timezone=%s to your JVM arguments",
+                    timeZone.getID());
+        }
     }
 
     public HiveMetastore getMetastore()
@@ -468,6 +479,10 @@ public class HiveClient
     @Override
     public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        checkArgument(allowBrokenWrites || timeZone.equals(DateTimeZone.getDefault()),
+                "To write Hive data, your JVM timezone must match the Hive storage timezone. Add -Duser.timezone=%s to your JVM arguments",
+                timeZone.getID());
+
         checkArgument(!isNullOrEmpty(tableMetadata.getOwner()), "Table owner is null or empty");
 
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
