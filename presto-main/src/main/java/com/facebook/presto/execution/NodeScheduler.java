@@ -17,6 +17,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.InetAddresses;
 import org.weakref.jmx.Managed;
@@ -105,7 +107,7 @@ public class NodeScheduler
         scheduleRandom.set(0);
     }
 
-    public NodeSelector createNodeSelector(final String dataSourceName, Map<Node, RemoteTask> taskMap)
+    public NodeSelector createNodeSelector(final String dataSourceName, Iterable<RemoteTask> tasks)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -153,18 +155,27 @@ public class NodeScheduler
             }
         }, 5, TimeUnit.SECONDS);
 
-        return new NodeSelector(nodeMap, taskMap);
+        Multimap<String, RemoteTask> tasksByNodeId = Multimaps.index(tasks, new Function<RemoteTask, String>()
+        {
+            @Override
+            public String apply(RemoteTask input)
+            {
+                return input.getNodeId();
+            }
+        });
+
+        return new NodeSelector(nodeMap, tasksByNodeId);
     }
 
     public class NodeSelector
     {
         private final AtomicReference<Supplier<NodeMap>> nodeMap;
-        private final Map<Node, RemoteTask> taskMap;
+        private final Multimap<String, RemoteTask> tasksByNodeId;
 
-        public NodeSelector(Supplier<NodeMap> nodeMap, Map<Node, RemoteTask> taskMap)
+        public NodeSelector(Supplier<NodeMap> nodeMap, Multimap<String, RemoteTask> tasksByNodeId)
         {
             this.nodeMap = new AtomicReference<>(nodeMap);
-            this.taskMap = taskMap;
+            this.tasksByNodeId = tasksByNodeId;
         }
 
         public void lockDownNodes()
@@ -241,8 +252,10 @@ public class NodeScheduler
                 if (chosenNode == null) {
                     for (Node node : candidateNodes) {
                         int assignedSplitCount = assignmentCount.containsKey(node) ? assignmentCount.get(node) : 0;
-                        RemoteTask remoteTask = taskMap.get(node);
-                        int queuedSplitCount = remoteTask == null ? 0 : remoteTask.getQueuedPartitionedSplitCount();
+                        int queuedSplitCount = 0;
+                        for (RemoteTask remoteTask : tasksByNodeId.get(node.getNodeIdentifier())) {
+                            queuedSplitCount = remoteTask == null ? 0 : remoteTask.getQueuedPartitionedSplitCount();
+                        }
                         int totalSplitCount = queuedSplitCount + assignedSplitCount;
                         if (totalSplitCount < min && totalSplitCount < maxSplitsPerNodePerTaskWhenFull) {
                             chosenNode = node;

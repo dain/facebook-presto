@@ -54,7 +54,7 @@ public class TestRaptorDistributedQueries
     private static QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 4);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

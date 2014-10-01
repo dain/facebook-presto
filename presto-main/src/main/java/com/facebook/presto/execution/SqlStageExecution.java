@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
@@ -106,7 +107,7 @@ public class SqlStageExecution
     private final PlanFragment fragment;
     private final Map<PlanFragmentId, StageExecutionNode> subStages;
 
-    private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TaskId, RemoteTask> tasks = new ConcurrentHashMap<>();
 
     private final Optional<SplitSource> dataSource;
     private final RemoteTaskFactory remoteTaskFactory;
@@ -235,7 +236,7 @@ public class SqlStageExecution
             this.subStages = subStages.build();
 
             String dataSourceName = dataSource.isPresent() ? dataSource.get().getDataSourceName() : null;
-            this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName, tasks);
+            this.nodeSelector = nodeScheduler.createNodeSelector(dataSourceName, tasks.values());
             this.nodeTaskMap = nodeTaskMap;
             stageState = new StateMachine<>("stage " + stageId, this.executor, StageState.PLANNED);
             stageState.addStateChangeListener(new StateChangeListener<StageState>()
@@ -497,7 +498,7 @@ public class SqlStageExecution
     }
 
     @VisibleForTesting
-    public Map<Node, RemoteTask> getTasks()
+    public Map<TaskId, RemoteTask> getTasks()
     {
         return ImmutableMap.copyOf(tasks);
     }
@@ -761,7 +762,7 @@ public class SqlStageExecution
         task.start();
 
         // record this task
-        tasks.put(node, task);
+        tasks.put(task.getTaskInfo().getTaskId(), task);
         nodeTaskMap.addTask(node, task);
 
         // update in case task finished before listener was registered
