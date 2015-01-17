@@ -102,4 +102,9 @@ public class Scope
 
         return variable;
     }
+
+    public boolean variableExists(String variableName)
+    {
+        return variables.containsKey(variableName);
+    }
 }
