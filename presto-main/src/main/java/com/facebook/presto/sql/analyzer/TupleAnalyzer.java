@@ -845,6 +845,10 @@ public class TupleAnalyzer
 
     private List<FieldOrExpression> analyzeSelect(QuerySpecification node, TupleDescriptor tupleDescriptor, AnalysisContext context)
     {
+        if (!node.getSelect().getTargets().isEmpty()) {
+            throw new SemanticException(NOT_SUPPORTED, node, "SELECT INTO is not supported in this context");
+        }
+
         ImmutableList.Builder<FieldOrExpression> outputExpressionBuilder = ImmutableList.builder();
 
         for (SelectItem item : node.getSelect().getSelectItems()) {
