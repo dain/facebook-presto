@@ -511,7 +511,7 @@ public class MetadataManager
     @Override
     public FunctionRegistry getFunctionRegistry(Session session)
     {
-        return getFunctionRegistry(functionDecoder.loadFunctions(session));
+        return getFunctionRegistry(functionDecoder.loadFunctions(functions, session));
     }
 
     @Override

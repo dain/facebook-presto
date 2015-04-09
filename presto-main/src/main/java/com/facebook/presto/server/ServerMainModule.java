@@ -24,9 +24,9 @@ import com.facebook.presto.event.query.QueryCompletionEvent;
 import com.facebook.presto.event.query.QueryCreatedEvent;
 import com.facebook.presto.event.query.QueryMonitor;
 import com.facebook.presto.event.query.SplitCompletionEvent;
+import com.facebook.presto.execution.CompilingFunctionDecoder;
 import com.facebook.presto.execution.FunctionDecoder;
 import com.facebook.presto.execution.LocationFactory;
-import com.facebook.presto.execution.NullFunctionDecoder;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlTaskManager;
@@ -190,7 +190,7 @@ public class ServerMainModule
         bindConfig(binder).to(CatalogManagerConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(FunctionDecoder.class).to(NullFunctionDecoder.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionDecoder.class).to(CompilingFunctionDecoder.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);

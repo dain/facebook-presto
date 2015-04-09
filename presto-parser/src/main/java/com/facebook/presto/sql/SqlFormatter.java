@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.CreateProcedure;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.ElseClause;
@@ -679,7 +680,11 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateFunction(CreateFunction node, Integer indent)
         {
-            builder.append("CREATE FUNCTION ")
+            builder.append("CREATE ");
+            if (node.isReplace()) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("FUNCTION ")
                     .append(node.getName())
                     .append("(");
             processParameters(node.getParameters(), indent);
@@ -688,6 +693,18 @@ public final class SqlFormatter
             builder.append("\n");
             process(node.getRoutineCharacteristics(), indent);
             process(node.getStatement(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropFunction(DropFunction node, Integer indent)
+        {
+            builder.append("DROP FUNCTION ");
+            if (node.isIfExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getName());
 
             return null;
         }

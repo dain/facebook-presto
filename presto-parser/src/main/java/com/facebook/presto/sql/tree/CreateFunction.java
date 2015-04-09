@@ -27,19 +27,22 @@ public class CreateFunction
     private final ReturnClause returnClause;
     private final RoutineCharacteristics routineCharacteristics;
     private final Statement statement;
+    private final boolean replace;
 
     public CreateFunction(
             QualifiedName name,
             List<ParameterDeclaration> parameters,
             ReturnClause returnClause,
             RoutineCharacteristics routineCharacteristics,
-            Statement statement)
+            Statement statement,
+            boolean replace)
     {
         this.name = checkNotNull(name, "name is null");
         this.parameters = checkNotNull(parameters, "parameters is null");
         this.returnClause = checkNotNull(returnClause, "returnClause is null");
         this.routineCharacteristics = checkNotNull(routineCharacteristics, "routineCharacteristics is null");
         this.statement = checkNotNull(statement, "statement is null");
+        this.replace = replace;
     }
 
     public QualifiedName getName()
@@ -65,6 +68,11 @@ public class CreateFunction
     public Statement getStatement()
     {
         return statement;
+    }
+
+    public boolean isReplace()
+    {
+        return replace;
     }
 
     @Override

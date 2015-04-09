@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.sql.routine;
 
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -54,6 +56,15 @@ public class AnalyzedFunction
     public SqlRoutine getRoutine()
     {
         return routine;
+    }
+
+    public Signature getSignature()
+    {
+        return new Signature(name,
+                returnType.getTypeSignature(),
+                argumentTypes.stream()
+                        .map(Type::getTypeSignature)
+                        .collect(toImmutableList()));
     }
 
     @Override

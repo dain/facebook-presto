@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.google.common.collect.ImmutableMap;
 
@@ -24,13 +25,13 @@ public class NullFunctionDecoder
         implements FunctionDecoder
 {
     @Override
-    public FunctionInfo decode(String value)
+    public FunctionInfo decode(FunctionRegistry functionRegistry, String value)
     {
         return null;
     }
 
     @Override
-    public Map<Signature, FunctionInfo> loadFunctions(Session session)
+    public Map<Signature, FunctionInfo> loadFunctions(FunctionRegistry functionRegistry, Session session)
     {
         return ImmutableMap.of();
     }

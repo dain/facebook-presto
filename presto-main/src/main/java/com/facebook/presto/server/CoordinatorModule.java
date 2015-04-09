@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.execution.CreateFunctionTask;
 import com.facebook.presto.execution.CreateTableTask;
 import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
+import com.facebook.presto.execution.DropFunctionTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ForQueryExecution;
@@ -39,9 +41,11 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
@@ -148,6 +152,8 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
         bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, CreateFunction.class, CreateFunctionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, DropFunction.class, DropFunctionTask.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
     }

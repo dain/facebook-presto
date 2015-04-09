@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CompoundStatement;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateProcedure;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.ElseClause;
 import com.facebook.presto.sql.tree.ElseIfClause;
 import com.facebook.presto.sql.tree.Expression;
@@ -68,6 +69,43 @@ public class TestSqlRoutines
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
+    public void testCreateFunction()
+            throws Exception
+    {
+        assertStatement("" +
+                        "CREATE FUNCTION hello (s BIGINT)\n" +
+                        "RETURNS BIGINT DETERMINISTIC\n" +
+                        "RETURN 42",
+                createFunction(
+                        "hello",
+                        ImmutableList.of(parameter("s", "BIGINT")),
+                        returns("BIGINT"),
+                        characteristics(DETERMINISTIC),
+                        new ReturnStatement(literal(42)),
+                        false));
+
+        assertStatement("" +
+                        "CREATE OR REPLACE FUNCTION hello (s BIGINT)\n" +
+                        "RETURNS BIGINT DETERMINISTIC\n" +
+                        "RETURN 42",
+                createFunction(
+                        "hello",
+                        ImmutableList.of(parameter("s", "BIGINT")),
+                        returns("BIGINT"),
+                        characteristics(DETERMINISTIC),
+                        new ReturnStatement(literal(42)),
+                        true));
+    }
+
+    @Test
+    public void testDropFunction()
+            throws Exception
+    {
+        assertStatement("DROP FUNCTION hello", new DropFunction(new QualifiedName("hello"), false));
+        assertStatement("DROP FUNCTION IF EXISTS hello", new DropFunction(new QualifiedName("hello"), true));
+    }
+
+    @Test
     public void testSimpleFunction()
             throws Exception
     {
@@ -80,8 +118,8 @@ public class TestSqlRoutines
                         ImmutableList.of(parameter("s", "CHAR")),
                         returns("CHAR"),
                         characteristics(DETERMINISTIC),
-                        new ReturnStatement(
-                                functionCall("CONCAT", literal("Hello, "), nameReference("s"), literal("!")))));
+                        new ReturnStatement(functionCall("CONCAT", literal("Hello, "), nameReference("s"), literal("!"))),
+                        false));
     }
 
     @Test
@@ -97,7 +135,8 @@ public class TestSqlRoutines
                         ImmutableList.of(),
                         returns("BIGINT"),
                         characteristics(),
-                        new ReturnStatement(literal(42))));
+                        new ReturnStatement(literal(42)),
+                        false));
     }
 
     @Test
@@ -143,7 +182,8 @@ public class TestSqlRoutines
                                                 assign("c", plus(nameReference("a"), nameReference("b"))),
                                                 assign("a", nameReference("b")),
                                                 assign("b", nameReference("c")))),
-                                new ReturnStatement(nameReference("c")))));
+                                new ReturnStatement(nameReference("c"))),
+                        false));
     }
 
     @Test
@@ -182,8 +222,8 @@ public class TestSqlRoutines
                                                 elseIf(lt("p_creditLimit", literal(10000)),
                                                         assign("lvl", literal("SILVER")))),
                                         Optional.empty()),
-                                new ReturnStatement(nameReference("lvl")))
-                ));
+                                new ReturnStatement(nameReference("lvl"))),
+                        false));
     }
 
     @Test
@@ -357,9 +397,10 @@ public class TestSqlRoutines
             List<ParameterDeclaration> parameters,
             ReturnClause returnClause,
             RoutineCharacteristics routineCharacteristics,
-            Statement statement)
+            Statement statement,
+            boolean replace)
     {
-        return new CreateFunction(new QualifiedName(name), parameters, returnClause, routineCharacteristics, statement);
+        return new CreateFunction(new QualifiedName(name), parameters, returnClause, routineCharacteristics, statement, replace);
     }
 
     private static RoutineCharacteristics characteristics(RoutineCharacteristic... characteristics)

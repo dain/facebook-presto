@@ -53,8 +53,9 @@ statement
         (WHERE booleanExpression)?
         (ORDER BY sortItem (',' sortItem)*)?
         (LIMIT limit=INTEGER_VALUE)?                                   #showPartitions
-    | CREATE FUNCTION qualifiedName parameterDeclarationList
+    | CREATE (OR REPLACE)? FUNCTION qualifiedName parameterDeclarationList
       returnsClause routineCharacteristic* routineStatement            #createFunction
+    | DROP FUNCTION (IF EXISTS)? qualifiedName                         #dropFunction
     | CREATE PROCEDURE qualifiedName parameterDeclarationList
       routineCharacteristic* routineStatement                          #createProcedure
     ;

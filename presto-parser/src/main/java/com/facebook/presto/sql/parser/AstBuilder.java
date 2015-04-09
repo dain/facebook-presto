@@ -37,6 +37,7 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DeterministicCharacteristic;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropFunction;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.ElseClause;
@@ -1034,7 +1035,16 @@ class AstBuilder
                 visit(context.parameterDeclarationList().parameterDeclaration(), ParameterDeclaration.class),
                 (ReturnClause) visit(context.returnsClause()),
                 gatherRoutineCharacteristics(context.routineCharacteristic()),
-                (Statement) visitRoutineStatement(context.routineStatement()));
+                (Statement) visitRoutineStatement(context.routineStatement()),
+                context.REPLACE() != null);
+    }
+
+    @Override
+    public Node visitDropFunction(@NotNull SqlBaseParser.DropFunctionContext context)
+    {
+        return new DropFunction(
+                getQualifiedName(context.qualifiedName()),
+                context.EXISTS() != null);
     }
 
     @Override

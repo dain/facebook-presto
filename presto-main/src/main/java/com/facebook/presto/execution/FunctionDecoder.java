@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Signature;
 import com.google.common.collect.ImmutableMap;
 
@@ -23,17 +24,16 @@ import java.util.Map.Entry;
 
 public interface FunctionDecoder
 {
-    String FUNCTION_SESSION_PREFIX = "$PRESTO_FUNCTION$$";
-
     // This method will be called often so implementation must cache
-    FunctionInfo decode(String value);
+    FunctionInfo decode(FunctionRegistry functionRegistry, String value);
 
-    default Map<Signature, FunctionInfo> loadFunctions(Session session)
+    default Map<Signature, FunctionInfo> loadFunctions(FunctionRegistry functionRegistry, Session session)
     {
         ImmutableMap.Builder<Signature, FunctionInfo> functions = ImmutableMap.builder();
         for (Entry<String, String> entry : session.getSystemProperties().entrySet()) {
-            if (entry.getKey().startsWith(FUNCTION_SESSION_PREFIX)) {
-                FunctionInfo functionInfo = decode(entry.getValue());
+            if (entry.getKey().startsWith(FunctionUtils.FUNCTION_SESSION_PREFIX)) {
+                String value = FunctionUtils.decodeFunctionSessionProperty(entry.getValue());
+                FunctionInfo functionInfo = decode(functionRegistry, value);
                 functions.put(functionInfo.getSignature(), functionInfo);
             }
         }
