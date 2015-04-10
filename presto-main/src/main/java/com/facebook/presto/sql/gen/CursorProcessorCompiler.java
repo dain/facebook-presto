@@ -16,14 +16,14 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.byteCode.Block;
 import com.facebook.presto.byteCode.ByteCodeNode;
 import com.facebook.presto.byteCode.ClassDefinition;
-import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.MethodDefinition;
 import com.facebook.presto.byteCode.Parameter;
+import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageBuilder;
@@ -41,8 +41,8 @@ import java.util.List;
 
 import static com.facebook.presto.byteCode.Access.PUBLIC;
 import static com.facebook.presto.byteCode.Access.a;
-import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.OpCode.NOP;
+import static com.facebook.presto.byteCode.Parameter.arg;
 import static com.facebook.presto.byteCode.ParameterizedType.type;
 import static com.facebook.presto.sql.gen.ByteCodeUtils.generateWrite;
 import static java.lang.String.format;
@@ -50,11 +50,11 @@ import static java.lang.String.format;
 public class CursorProcessorCompiler
         implements BodyCompiler<CursorProcessor>
 {
-    private final Metadata metadata;
+    private final FunctionRegistry functionRegistry;
 
-    public CursorProcessorCompiler(Metadata metadata)
+    public CursorProcessorCompiler(FunctionRegistry functionRegistry)
     {
-        this.metadata = metadata;
+        this.functionRegistry = functionRegistry;
     }
 
     @Override
@@ -171,7 +171,7 @@ public class CursorProcessorCompiler
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), functionRegistry);
 
         LabelNode end = new LabelNode("end");
         method.getBody()
@@ -204,7 +204,7 @@ public class CursorProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(cursor, wasNullVariable), functionRegistry);
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())

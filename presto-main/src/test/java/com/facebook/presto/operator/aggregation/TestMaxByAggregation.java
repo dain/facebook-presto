@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.util.Set;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
@@ -49,7 +50,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestMaxByAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
-    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
 
     @BeforeClass
     public void setup()

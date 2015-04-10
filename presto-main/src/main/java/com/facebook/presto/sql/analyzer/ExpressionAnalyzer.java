@@ -1038,7 +1038,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalyzer create(Analysis analysis, Session session, Metadata metadata, SqlParser sqlParser, boolean experimentalSyntaxEnabled)
     {
         return new ExpressionAnalyzer(
-                metadata.getFunctionRegistry(),
+                metadata.getFunctionRegistry(session),
                 metadata.getTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, session, experimentalSyntaxEnabled, Optional.empty()));
     }

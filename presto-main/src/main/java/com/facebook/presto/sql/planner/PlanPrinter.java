@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.TableHandle;
@@ -87,19 +88,22 @@ public class PlanPrinter
 {
     private final StringBuilder output = new StringBuilder();
     private final Metadata metadata;
+    private final Session session;
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session)
     {
-        this(plan, types, metadata, 0);
+        this(plan, types, metadata, session, 0);
     }
 
-    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, int indent)
+    private PlanPrinter(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session, int indent)
     {
         checkNotNull(plan, "plan is null");
         checkNotNull(types, "types is null");
         checkNotNull(metadata, "metadata is null");
+        checkNotNull(session, "session is null");
 
         this.metadata = metadata;
+        this.session = session;
 
         Visitor visitor = new Visitor(types);
         plan.accept(visitor, indent);
@@ -111,14 +115,14 @@ public class PlanPrinter
         return output.toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session)
     {
-        return new PlanPrinter(plan, types, metadata).toString();
+        return new PlanPrinter(plan, types, metadata, session).toString();
     }
 
-    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, int indent)
+    public static String textLogicalPlan(PlanNode plan, Map<Symbol, Type> types, Metadata metadata, Session session, int indent)
     {
-        return new PlanPrinter(plan, types, metadata, indent).toString();
+        return new PlanPrinter(plan, types, metadata, session, indent).toString();
     }
 
     public static String getJsonPlanSource(PlanNode plan, Metadata metadata)
@@ -126,7 +130,7 @@ public class PlanPrinter
         return JsonPlanPrinter.getPlan(plan, metadata);
     }
 
-    public static String textDistributedPlan(SubPlan plan, Metadata metadata)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, Session session)
     {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
@@ -144,7 +148,7 @@ public class PlanPrinter
                                 Joiner.on(", ").join(fragment.getPartitionBy())));
             }
 
-            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, 1))
+            builder.append(textLogicalPlan(fragment.getRoot(), fragment.getSymbols(), metadata, session, 1))
                     .append("\n");
         }
 
@@ -580,7 +584,7 @@ public class PlanPrinter
 
         try {
             ColumnMetadata columnMetadata = metadata.getColumnMetadata(table, column);
-            MethodHandle method = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR)
+            MethodHandle method = metadata.getFunctionRegistry(session).getCoercion(columnMetadata.getType(), VARCHAR)
                     .getMethodHandle();
 
             for (Range range : domain.getRanges()) {

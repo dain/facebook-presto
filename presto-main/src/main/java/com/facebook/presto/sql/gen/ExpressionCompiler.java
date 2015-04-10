@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.byteCode.ClassDefinition;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.CursorProcessor;
 import com.facebook.presto.operator.PageProcessor;
@@ -23,6 +24,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
@@ -50,7 +52,9 @@ public class ExpressionCompiler
                 public PageProcessor load(CacheKey key)
                         throws Exception
                 {
-                    return compileAndInstantiate(key.getFilter(), key.getProjections(), new PageProcessorCompiler(metadata), PageProcessor.class);
+                    // todo capture session scoped functions in CacheKey
+                    FunctionRegistry functionRegistry = metadata.getFunctionRegistry(ImmutableMap.of());
+                    return compileAndInstantiate(key.getFilter(), key.getProjections(), new PageProcessorCompiler(functionRegistry), PageProcessor.class);
                 }
             });
 
@@ -61,7 +65,9 @@ public class ExpressionCompiler
                 public CursorProcessor load(CacheKey key)
                         throws Exception
                 {
-                    return compileAndInstantiate(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class);
+                    // todo capture session scoped functions in CacheKey
+                    FunctionRegistry functionRegistry = metadata.getFunctionRegistry(ImmutableMap.of());
+                    return compileAndInstantiate(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(functionRegistry), CursorProcessor.class);
                 }
             });
 

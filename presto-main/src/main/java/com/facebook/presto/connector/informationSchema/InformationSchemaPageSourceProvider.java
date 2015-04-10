@@ -267,7 +267,7 @@ public class InformationSchemaPageSourceProvider
                         if (entry.getValue().getValue() != null) {
                             ColumnMetadata columnMetadata = metadata.getColumnMetadata(tableHandle.get(), columnHandle);
                             try {
-                                FunctionInfo operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
+                                FunctionInfo operator = metadata.getFunctionRegistry(session).getCoercion(columnMetadata.getType(), VARCHAR);
                                 value = ((Slice) operator.getMethodHandle().invokeWithArguments(entry.getValue().getValue())).toStringUtf8();
                             }
                             catch (OperatorNotFoundException e) {

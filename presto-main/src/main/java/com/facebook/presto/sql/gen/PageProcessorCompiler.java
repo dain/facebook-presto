@@ -24,7 +24,7 @@ import com.facebook.presto.byteCode.Variable;
 import com.facebook.presto.byteCode.control.ForLoop;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Page;
@@ -57,11 +57,11 @@ import static java.util.Collections.nCopies;
 public class PageProcessorCompiler
         implements BodyCompiler<PageProcessor>
 {
-    private final Metadata metadata;
+    private final FunctionRegistry functionRegistry;
 
-    public PageProcessorCompiler(Metadata metadata)
+    public PageProcessorCompiler(FunctionRegistry functionRegistry)
     {
-        this.metadata = metadata;
+        this.functionRegistry = functionRegistry;
     }
 
     @Override
@@ -210,7 +210,7 @@ public class PageProcessorCompiler
         ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(
                 callSiteBinder,
                 fieldReferenceCompiler(callSiteBinder, position, wasNullVariable),
-                metadata.getFunctionRegistry());
+                functionRegistry);
         ByteCodeNode body = filter.accept(visitor, scope);
 
         LabelNode end = new LabelNode("end");
@@ -253,7 +253,7 @@ public class PageProcessorCompiler
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false);
 
-        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, position, wasNullVariable), metadata.getFunctionRegistry());
+        ByteCodeExpressionVisitor visitor = new ByteCodeExpressionVisitor(callSiteBinder, fieldReferenceCompiler(callSiteBinder, position, wasNullVariable), functionRegistry);
 
         body.getVariable(output)
                 .comment("evaluate projection: " + projection.toString())

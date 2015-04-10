@@ -184,7 +184,9 @@ public interface Metadata
      */
     void dropView(Session session, QualifiedTableName viewName);
 
-    FunctionRegistry getFunctionRegistry();
+    FunctionRegistry getFunctionRegistry(Session session);
+
+    FunctionRegistry getFunctionRegistry(Map<Signature, FunctionInfo> sessionScopedFunctions);
 
     TypeManager getTypeManager();
 }

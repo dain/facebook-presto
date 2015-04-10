@@ -625,7 +625,7 @@ public class TupleAnalyzer
 
             List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-            FunctionInfo info = metadata.getFunctionRegistry().resolveFunction(windowFunction.getName(), argumentTypes, false);
+            FunctionInfo info = metadata.getFunctionRegistry(session).resolveFunction(windowFunction.getName(), argumentTypes, false);
             if (!info.isWindow()) {
                 throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
             }

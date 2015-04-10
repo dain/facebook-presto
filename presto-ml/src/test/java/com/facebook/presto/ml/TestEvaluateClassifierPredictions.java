@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
@@ -44,7 +45,7 @@ import static org.testng.Assert.assertEquals;
 public class TestEvaluateClassifierPredictions
 {
     private final Metadata metadata = new MetadataManager();
-    private final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+    private final FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
 
     @Test
     public void testEvaluateClassifierPredictions()

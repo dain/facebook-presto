@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -46,7 +47,7 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 public class TestMapAggAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
-    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
 
     @Test
     public void testDuplicateKeysValues()

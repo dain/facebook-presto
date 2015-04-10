@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Marker;
 import com.facebook.presto.spi.Range;
@@ -197,13 +196,13 @@ public final class DomainTranslator
             extends AstVisitor<ExtractionResult, Boolean>
     {
         private final Metadata metadata;
-        private final ConnectorSession session;
+        private final Session session;
         private final Map<Symbol, Type> types;
 
         private Visitor(Metadata metadata, Session session, Map<Symbol, Type> types)
         {
             this.metadata = checkNotNull(metadata, "metadata is null");
-            this.session = checkNotNull(session, "session is null").toConnectorSession();
+            this.session = checkNotNull(session, "session is null");
             this.types = ImmutableMap.copyOf(checkNotNull(types, "types is null"));
         }
 

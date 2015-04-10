@@ -74,7 +74,7 @@ public class TestAggregationOperator
             throws Exception
     {
         MetadataManager metadata = new MetadataManager();
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
         InternalAggregationFunction countVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         InternalAggregationFunction maxVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, DOUBLE, VARCHAR)

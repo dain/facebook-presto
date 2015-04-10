@@ -104,7 +104,7 @@ public class TestHashAggregationOperator
             throws Exception
     {
         MetadataManager metadata = new MetadataManager();
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
         InternalAggregationFunction countVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         InternalAggregationFunction countBooleanColumn = functionRegistry.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)), false).getAggregationFunction();
         InternalAggregationFunction maxVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
@@ -153,7 +153,7 @@ public class TestHashAggregationOperator
     public void testMemoryLimit(boolean hashEnabled)
     {
         MetadataManager metadata = new MetadataManager();
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
         InternalAggregationFunction maxVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("max"),
                 ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)),
                 false).getAggregationFunction();

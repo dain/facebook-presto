@@ -136,7 +136,7 @@ public class AddExchanges
             this.session = session;
             this.distributedIndexJoins = distributedIndexJoins;
             this.distributedJoins = distributedJoins;
-            functionRegistry = metadata.getFunctionRegistry();
+            functionRegistry = metadata.getFunctionRegistry(session);
         }
 
         @Override

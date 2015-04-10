@@ -15,8 +15,10 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
-import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.execution.FunctionDecoder;
+import com.facebook.presto.execution.NullFunctionDecoder;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -92,6 +94,7 @@ public class MetadataManager
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final SplitManager splitManager;
+    private final FunctionDecoder functionDecoder;
 
     @VisibleForTesting
     public MetadataManager()
@@ -101,16 +104,17 @@ public class MetadataManager
 
     public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, SplitManager splitManager)
     {
-        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager);
+        this(featuresConfig, typeManager, createTestingViewCodec(), splitManager, new NullFunctionDecoder());
     }
 
     @Inject
-    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SplitManager splitManager)
+    public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SplitManager splitManager, FunctionDecoder functionDecoder)
     {
         functions = new GlobalFunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
         this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");
+        this.functionDecoder = checkNotNull(functionDecoder, "functionDecoder is null");
     }
 
     public synchronized void addConnectorMetadata(String connectorId, String catalogName, ConnectorMetadata connectorMetadata)
@@ -505,9 +509,15 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionRegistry getFunctionRegistry()
+    public FunctionRegistry getFunctionRegistry(Session session)
     {
-        return functions;
+        return getFunctionRegistry(functionDecoder.loadFunctions(session));
+    }
+
+    @Override
+    public FunctionRegistry getFunctionRegistry(Map<Signature, FunctionInfo> sessionFunction)
+    {
+        return new ScopedFunctionRegistry(functions, sessionFunction);
     }
 
     @Override

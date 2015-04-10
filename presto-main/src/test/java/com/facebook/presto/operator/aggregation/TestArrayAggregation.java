@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
@@ -36,7 +37,7 @@ import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 public class TestArrayAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
-    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
 
     @Test
     public void testEmpty()

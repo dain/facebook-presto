@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Set;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
@@ -34,7 +35,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestArbitraryAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
-    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry(TEST_SESSION);
 
     @Test
     public void testAllRegistered()

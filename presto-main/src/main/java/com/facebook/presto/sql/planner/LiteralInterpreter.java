@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -64,7 +64,7 @@ public final class LiteralInterpreter
 {
     private LiteralInterpreter() {}
 
-    public static Object evaluate(Metadata metadata, ConnectorSession session, Expression node)
+    public static Object evaluate(Metadata metadata, com.facebook.presto.Session session, Expression node)
     {
         if (!(node instanceof Literal)) {
             throw new IllegalArgumentException("node must be a Literal");
@@ -152,7 +152,7 @@ public final class LiteralInterpreter
     }
 
     private static class LiteralVisitor
-            extends AstVisitor<Object, ConnectorSession>
+            extends AstVisitor<Object, Session>
     {
         private final Metadata metadata;
 
@@ -162,37 +162,37 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Object visitLiteral(Literal node, ConnectorSession session)
+        protected Object visitLiteral(Literal node, Session session)
         {
             throw new UnsupportedOperationException("Unhandled literal type: " + node);
         }
 
         @Override
-        protected Object visitBooleanLiteral(BooleanLiteral node, ConnectorSession session)
+        protected Object visitBooleanLiteral(BooleanLiteral node, Session session)
         {
             return node.getValue();
         }
 
         @Override
-        protected Long visitLongLiteral(LongLiteral node, ConnectorSession session)
+        protected Long visitLongLiteral(LongLiteral node, Session session)
         {
             return node.getValue();
         }
 
         @Override
-        protected Double visitDoubleLiteral(DoubleLiteral node, ConnectorSession session)
+        protected Double visitDoubleLiteral(DoubleLiteral node, Session session)
         {
             return node.getValue();
         }
 
         @Override
-        protected Slice visitStringLiteral(StringLiteral node, ConnectorSession session)
+        protected Slice visitStringLiteral(StringLiteral node, Session session)
         {
             return node.getSlice();
         }
 
         @Override
-        protected Object visitGenericLiteral(GenericLiteral node, ConnectorSession session)
+        protected Object visitGenericLiteral(GenericLiteral node, Session session)
         {
             Type type = metadata.getType(parseTypeSignature(node.getType()));
             if (type == null) {
@@ -201,13 +201,13 @@ public final class LiteralInterpreter
 
             FunctionInfo operator;
             try {
-                operator = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
+                operator = metadata.getFunctionRegistry(session).getCoercion(VARCHAR, type);
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
             }
             try {
-                return ExpressionInterpreter.invoke(session, operator.getMethodHandle(), ImmutableList.<Object>of(utf8Slice(node.getValue())));
+                return ExpressionInterpreter.invoke(session.toConnectorSession(), operator.getMethodHandle(), ImmutableList.<Object>of(utf8Slice(node.getValue())));
             }
             catch (Throwable throwable) {
                 throw Throwables.propagate(throwable);
@@ -215,19 +215,19 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Long visitTimeLiteral(TimeLiteral node, ConnectorSession session)
+        protected Long visitTimeLiteral(TimeLiteral node, Session session)
         {
             return parseTime(session.getTimeZoneKey(), node.getValue());
         }
 
         @Override
-        protected Long visitTimestampLiteral(TimestampLiteral node, ConnectorSession session)
+        protected Long visitTimestampLiteral(TimestampLiteral node, Session session)
         {
             return parseTimestamp(session.getTimeZoneKey(), node.getValue());
         }
 
         @Override
-        protected Long visitIntervalLiteral(IntervalLiteral node, ConnectorSession session)
+        protected Long visitIntervalLiteral(IntervalLiteral node, Session session)
         {
             if (node.isYearToMonth()) {
                 return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
@@ -239,7 +239,7 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Object visitNullLiteral(NullLiteral node, ConnectorSession session)
+        protected Object visitNullLiteral(NullLiteral node, Session session)
         {
             return null;
         }

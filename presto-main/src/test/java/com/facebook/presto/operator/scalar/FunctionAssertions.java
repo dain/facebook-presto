@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ParametricFunction;
@@ -33,6 +32,7 @@ import com.facebook.presto.operator.ScanFilterAndProjectOperator;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.FixedPageSource;
@@ -582,7 +582,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, IdentityHashMap<Expression, Type> expressionTypes)
     {
-        return SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
+        return SqlToRowExpressionTranslator.translate(projection, expressionTypes, metadata.getFunctionRegistry(session), metadata.getTypeManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

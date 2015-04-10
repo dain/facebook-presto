@@ -85,7 +85,7 @@ public class ExpressionInterpreter
 {
     private final Expression expression;
     private final Metadata metadata;
-    private final ConnectorSession session;
+    private final Session session;
     private final boolean optimize;
     private final IdentityHashMap<Expression, Type> expressionTypes;
 
@@ -117,7 +117,7 @@ public class ExpressionInterpreter
     {
         this.expression = expression;
         this.metadata = metadata;
-        this.session = session.toConnectorSession();
+        this.session = session;
         this.expressionTypes = expressionTypes;
         this.optimize = optimize;
 
@@ -541,16 +541,16 @@ public class ExpressionInterpreter
 
             Type commonType = getCommonSuperType(firstType, secondType).get();
 
-            FunctionInfo firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
-            FunctionInfo secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
+            FunctionInfo firstCast = metadata.getFunctionRegistry(session).getCoercion(firstType, commonType);
+            FunctionInfo secondCast = metadata.getFunctionRegistry(session).getCoercion(secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = (Boolean) invokeOperator(
                     OperatorType.EQUAL,
                     ImmutableList.of(commonType, commonType),
                     ImmutableList.of(
-                            invoke(session, firstCast.getMethodHandle(), ImmutableList.of(first)),
-                            invoke(session, secondCast.getMethodHandle(), ImmutableList.of(second))));
+                            invoke(session.toConnectorSession(), firstCast.getMethodHandle(), ImmutableList.of(first)),
+                            invoke(session.toConnectorSession(), secondCast.getMethodHandle(), ImmutableList.of(second))));
 
             if (equal) {
                 return null;
@@ -632,7 +632,7 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.getFunctionRegistry().resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
+            FunctionInfo function = metadata.getFunctionRegistry(session).resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !function.getNullableArguments().get(i)) {
@@ -644,7 +644,7 @@ public class ExpressionInterpreter
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
             }
-            return invoke(session, function.getMethodHandle(), argumentValues);
+            return invoke(session.toConnectorSession(), function.getMethodHandle(), argumentValues);
         }
 
         @Override
@@ -758,10 +758,10 @@ public class ExpressionInterpreter
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            FunctionInfo operatorInfo = metadata.getFunctionRegistry().getCoercion(expressionTypes.get(node.getExpression()), type);
+            FunctionInfo operatorInfo = metadata.getFunctionRegistry(session).getCoercion(expressionTypes.get(node.getExpression()), type);
 
             try {
-                return invoke(session, operatorInfo.getMethodHandle(), ImmutableList.of(value));
+                return invoke(session.toConnectorSession(), operatorInfo.getMethodHandle(), ImmutableList.of(value));
             }
             catch (RuntimeException e) {
                 if (node.isSafe()) {
@@ -832,7 +832,7 @@ public class ExpressionInterpreter
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
             FunctionInfo operatorInfo = metadata.resolveOperator(operatorType, argumentTypes);
-            return invoke(session, operatorInfo.getMethodHandle(), argumentValues);
+            return invoke(session.toConnectorSession(), operatorInfo.getMethodHandle(), argumentValues);
         }
     }
 
