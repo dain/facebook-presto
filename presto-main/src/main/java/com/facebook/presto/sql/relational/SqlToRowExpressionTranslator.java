@@ -124,14 +124,14 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
-    private static class Visitor
+    public static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
         private final IdentityHashMap<Expression, Type> types;
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
 
-        private Visitor(IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
+        protected Visitor(IdentityHashMap<Expression, Type> types, TypeManager typeManager, TimeZoneKey timeZoneKey)
         {
             this.types = types;
             this.typeManager = typeManager;
