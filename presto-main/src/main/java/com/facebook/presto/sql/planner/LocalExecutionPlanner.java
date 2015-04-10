@@ -800,8 +800,8 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    CursorProcessor cursorProcessor = compiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
-                    PageProcessor pageProcessor = compiler.compilePageProcessor(translatedFilter, translatedProjections);
+                    CursorProcessor cursorProcessor = compiler.compileCursorProcessor(translatedFilter, translatedProjections, session, sourceNode.getId());
+                    PageProcessor pageProcessor = compiler.compilePageProcessor(translatedFilter, translatedProjections, session);
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -815,7 +815,7 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
                 else {
-                    PageProcessor processor = compiler.compilePageProcessor(translatedFilter, translatedProjections);
+                    PageProcessor processor = compiler.compilePageProcessor(translatedFilter, translatedProjections, session);
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),

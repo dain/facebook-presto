@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.execution.NullFunctionDecoder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
@@ -45,6 +46,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DateType.DATE;
@@ -82,7 +84,7 @@ public class BenchmarkPageProcessor
 
         handCodedProcessor = new Tpch1FilterAndProject();
 
-        compiledProcessor = new ExpressionCompiler(new MetadataManager()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT));
+        compiledProcessor = new ExpressionCompiler(new MetadataManager(), new NullFunctionDecoder()).compilePageProcessor(FILTER, ImmutableList.of(PROJECT), TEST_SESSION);
     }
 
     @Benchmark

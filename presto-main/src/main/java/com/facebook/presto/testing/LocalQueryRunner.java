@@ -21,6 +21,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.CatalogSystemTable;
 import com.facebook.presto.connector.system.NodeSystemTable;
 import com.facebook.presto.connector.system.SystemConnector;
+import com.facebook.presto.execution.CompilingFunctionDecoder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
@@ -146,7 +147,7 @@ public class LocalQueryRunner
         this.metadata = new MetadataManager(new FeaturesConfig().setExperimentalSyntaxEnabled(true), typeRegistry, splitManager);
         this.pageSourceManager = new PageSourceManager();
 
-        this.compiler = new ExpressionCompiler(metadata);
+        this.compiler = new ExpressionCompiler(metadata, new CompilingFunctionDecoder(sqlParser, typeRegistry));
 
         this.connectorManager = new ConnectorManager(
                 metadata,

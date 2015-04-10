@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.NullFunctionDecoder;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
@@ -169,7 +170,7 @@ public final class FunctionAssertions
         this.session = checkNotNull(session, "session is null");
         runner = new LocalQueryRunner(session);
         metadata = runner.getMetadata();
-        compiler = new ExpressionCompiler(metadata);
+        compiler = new ExpressionCompiler(metadata, new NullFunctionDecoder());
     }
 
     public Metadata getMetadata()
@@ -513,7 +514,7 @@ public final class FunctionAssertions
         IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, INPUT_TYPES, ImmutableList.of(filter));
 
         try {
-            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of());
+            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), ImmutableList.of(), session);
 
             return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.<Type>of());
         }
@@ -534,7 +535,7 @@ public final class FunctionAssertions
 
         try {
             List<RowExpression> projections = ImmutableList.of(toRowExpression(projection, expressionTypes));
-            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), projections);
+            PageProcessor processor = compiler.compilePageProcessor(toRowExpression(filter, expressionTypes), projections, session);
 
             return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(0, processor, ImmutableList.of(expressionTypes.get(projection)));
         }
@@ -557,11 +558,13 @@ public final class FunctionAssertions
             CursorProcessor cursorProcessor = compiler.compileCursorProcessor(
                     toRowExpression(filter, expressionTypes),
                     ImmutableList.of(toRowExpression(projection, expressionTypes)),
+                    session,
                     SOURCE_ID);
 
             PageProcessor pageProcessor = compiler.compilePageProcessor(
                     toRowExpression(filter, expressionTypes),
-                    ImmutableList.of(toRowExpression(projection, expressionTypes)));
+                    ImmutableList.of(toRowExpression(projection, expressionTypes)),
+                    session);
 
             return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                     0,

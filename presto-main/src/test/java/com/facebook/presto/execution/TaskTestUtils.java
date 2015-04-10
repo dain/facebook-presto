@@ -93,7 +93,7 @@ public final class TaskTestUtils
                 new IndexManager(),
                 new PageSinkManager(),
                 new MockExchangeClientSupplier(),
-                new ExpressionCompiler(metadata),
+                new ExpressionCompiler(metadata, new NullFunctionDecoder()),
                 new IndexJoinLookupStats(),
                 new CompilerConfig(),
                 new TaskManagerConfig());
