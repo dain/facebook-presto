@@ -32,9 +32,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionRegistry.canCoerce;
-import static com.facebook.presto.metadata.FunctionRegistry.getCommonSuperType;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.canCoerce;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.getCommonSuperType;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;

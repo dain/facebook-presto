@@ -28,7 +28,7 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.LESS_THAN;
 import static com.facebook.presto.metadata.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;

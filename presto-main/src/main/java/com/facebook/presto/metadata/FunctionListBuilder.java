@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.operatorInfo;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;

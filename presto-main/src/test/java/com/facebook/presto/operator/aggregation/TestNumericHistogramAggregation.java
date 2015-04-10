@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.GlobalFunctionRegistry;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
@@ -44,7 +45,7 @@ public class TestNumericHistogramAggregation
 
     public TestNumericHistogramAggregation()
     {
-        FunctionRegistry functionRegistry = new FunctionRegistry(new TypeRegistry(), true);
+        FunctionRegistry functionRegistry = new GlobalFunctionRegistry(new TypeRegistry(), true);
         InternalAggregationFunction function = functionRegistry.resolveFunction(QualifiedName.of("numeric_histogram"), ImmutableList.of(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()), false).getAggregationFunction();
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty(), Optional.empty(), 1.0);
 

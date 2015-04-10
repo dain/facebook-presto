@@ -88,7 +88,7 @@ public class MetadataManager
     private final ConcurrentMap<String, ConnectorMetadataEntry> systemTablesByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadataEntry> connectorsByCatalog = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ConnectorMetadata> connectorsById = new ConcurrentHashMap<>();
-    private final FunctionRegistry functions;
+    private final GlobalFunctionRegistry functions;
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final SplitManager splitManager;
@@ -107,7 +107,7 @@ public class MetadataManager
     @Inject
     public MetadataManager(FeaturesConfig featuresConfig, TypeManager typeManager, JsonCodec<ViewDefinition> viewCodec, SplitManager splitManager)
     {
-        functions = new FunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
+        functions = new GlobalFunctionRegistry(typeManager, featuresConfig.isExperimentalSyntaxEnabled());
         this.typeManager = checkNotNull(typeManager, "types is null");
         this.viewCodec = checkNotNull(viewCodec, "viewCodec is null");
         this.splitManager = checkNotNull(splitManager, "splitManager is null");

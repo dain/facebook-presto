@@ -42,7 +42,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.type.TypeUtils.createBlock;

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.mangleOperatorName;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public abstract class ParametricOperator

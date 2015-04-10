@@ -48,7 +48,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;

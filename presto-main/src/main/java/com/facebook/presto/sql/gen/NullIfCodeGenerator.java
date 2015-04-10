@@ -19,7 +19,6 @@ import com.facebook.presto.byteCode.Scope;
 import com.facebook.presto.byteCode.control.IfStatement;
 import com.facebook.presto.byteCode.instruction.LabelNode;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -29,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.byteCode.expression.ByteCodeExpressions.constantTrue;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.getCommonSuperType;
 
 public class NullIfCodeGenerator
         implements ByteCodeGenerator
@@ -54,7 +54,7 @@ public class NullIfCodeGenerator
 
         // this is a hack! We shouldn't be determining type coercions at this point, but there's no way
         // around it in the current expression AST
-        Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+        Type commonType = getCommonSuperType(firstType, secondType).get();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
         FunctionInfo equalsFunction = generatorContext.getRegistry().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));

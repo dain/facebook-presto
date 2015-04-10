@@ -29,7 +29,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.OperatorType.EQUAL;
 import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.comparableTypeParameter;

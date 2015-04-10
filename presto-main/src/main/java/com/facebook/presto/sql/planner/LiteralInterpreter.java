@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
@@ -43,6 +42,8 @@ import io.airlift.slice.Slice;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.getMagicLiteralFunctionSignature;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.type;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
@@ -140,12 +141,12 @@ public final class LiteralInterpreter
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             FunctionCall fromBase64 = new FunctionCall(new QualifiedName("from_base64"), ImmutableList.of(new StringLiteral(VarbinaryFunctions.toBase64((Slice) object).toStringUtf8())));
-            Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
+            Signature signature = getMagicLiteralFunctionSignature(type);
             return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(fromBase64));
         }
 
-        Signature signature = FunctionRegistry.getMagicLiteralFunctionSignature(type);
-        Expression rawLiteral = toExpression(object, FunctionRegistry.type(type.getJavaType()));
+        Signature signature = getMagicLiteralFunctionSignature(type);
+        Expression rawLiteral = toExpression(object, type(type.getJavaType()));
 
         return new FunctionCall(new QualifiedName(signature.getName()), ImmutableList.of(rawLiteral));
     }

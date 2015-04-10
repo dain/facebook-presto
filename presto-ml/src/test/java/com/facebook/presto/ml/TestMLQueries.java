@@ -80,7 +80,7 @@ public class TestMLQueries
         for (ParametricType parametricType : plugin.getServices(ParametricType.class)) {
             localQueryRunner.getTypeManager().addParametricType(parametricType);
         }
-        localQueryRunner.getMetadata().getFunctionRegistry().addFunctions(Iterables.getOnlyElement(plugin.getServices(FunctionFactory.class)).listFunctions());
+        localQueryRunner.getMetadata().addFunctions(Iterables.getOnlyElement(plugin.getServices(FunctionFactory.class)).listFunctions());
 
         return localQueryRunner;
     }

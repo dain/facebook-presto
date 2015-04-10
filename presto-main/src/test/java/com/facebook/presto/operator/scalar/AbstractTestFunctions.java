@@ -78,7 +78,7 @@ public abstract class AbstractTestFunctions
         List<ParametricFunction> functions = new FunctionListBuilder(metadata.getTypeManager())
                 .scalar(clazz)
                 .getFunctions();
-        metadata.getFunctionRegistry().addFunctions(functions);
+        metadata.addFunctions(functions);
     }
 
     private void evaluateInvalid(String projection)

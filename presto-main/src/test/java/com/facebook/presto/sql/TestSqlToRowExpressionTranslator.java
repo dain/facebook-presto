@@ -14,6 +14,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.GlobalFunctionRegistry;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -31,7 +32,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 public class TestSqlToRowExpressionTranslator
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, true);
+    private static final FunctionRegistry FUNCTION_REGISTRY = new GlobalFunctionRegistry(TYPE_MANAGER, true);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()

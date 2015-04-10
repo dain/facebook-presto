@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
@@ -48,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.mangleOperatorName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -55,7 +55,7 @@ public class HashGenerationOptimizer
         extends PlanOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
+    private static final String HASH_CODE = mangleOperatorName("HASH_CODE");
     private final boolean optimizeHashGeneration;
 
     public HashGenerationOptimizer(boolean optimizeHashGeneration)

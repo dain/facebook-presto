@@ -27,7 +27,7 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.mangleOperatorName;
 import static com.facebook.presto.metadata.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.metadata.Signature.internalFunction;
 import static com.facebook.presto.metadata.Signature.internalOperator;

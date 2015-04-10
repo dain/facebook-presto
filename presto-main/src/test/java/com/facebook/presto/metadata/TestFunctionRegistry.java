@@ -25,9 +25,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
-import static com.facebook.presto.metadata.FunctionRegistry.mangleOperatorName;
-import static com.facebook.presto.metadata.FunctionRegistry.unmangleOperator;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.getMagicLiteralFunctionSignature;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.mangleOperatorName;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.unmangleOperator;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
@@ -43,7 +43,7 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        FunctionRegistry registry = new GlobalFunctionRegistry(new TypeRegistry(), true);
         FunctionInfo exactOperator = registry.getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getSignature().getName(), mangleOperatorName(OperatorType.CAST.name()));
         assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
@@ -54,7 +54,7 @@ public class TestFunctionRegistry
     public void testExactMatchBeforeCoercion()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, true);
+        GlobalFunctionRegistry registry = new GlobalFunctionRegistry(typeManager, true);
         boolean foundOperator = false;
         for (ParametricFunction function : registry.listOperators()) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -79,7 +79,7 @@ public class TestFunctionRegistry
         assertEquals(signature.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        FunctionRegistry registry = new GlobalFunctionRegistry(new TypeRegistry(), true);
         FunctionInfo function = registry.resolveFunction(QualifiedName.of(signature.getName()), signature.getArgumentTypes(), false);
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
@@ -95,7 +95,7 @@ public class TestFunctionRegistry
                 .filter(input -> input.getSignature().getName().equals("custom_add"))
                 .collect(toImmutableList());
 
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        GlobalFunctionRegistry registry = new GlobalFunctionRegistry(new TypeRegistry(), true);
         registry.addFunctions(functions);
         registry.addFunctions(functions);
     }
@@ -108,7 +108,7 @@ public class TestFunctionRegistry
                 .scalar(ScalarSum.class)
                 .getFunctions();
 
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        GlobalFunctionRegistry registry = new GlobalFunctionRegistry(new TypeRegistry(), true);
         registry.addFunctions(functions);
     }
 
@@ -116,7 +116,7 @@ public class TestFunctionRegistry
     public void testListingHiddenFunctions()
             throws Exception
     {
-        FunctionRegistry registry = new FunctionRegistry(new TypeRegistry(), true);
+        GlobalFunctionRegistry registry = new GlobalFunctionRegistry(new TypeRegistry(), true);
         List<ParametricFunction> functions = registry.list();
         List<String> names = transform(functions, input -> input.getSignature().getName());
 

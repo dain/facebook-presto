@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.routine;
 
-import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.GlobalFunctionRegistry;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.Type;
@@ -46,7 +46,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRoutineCompiler
 {
-    private final RoutineCompiler compiler = new RoutineCompiler(new FunctionRegistry(new TypeRegistry(), true));
+    private final RoutineCompiler compiler = new RoutineCompiler(new GlobalFunctionRegistry(new TypeRegistry(), true));
 
     @Test
     public void testSimpleExpression()

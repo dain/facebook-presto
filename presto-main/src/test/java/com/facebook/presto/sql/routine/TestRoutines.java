@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.routine;
 
 import com.facebook.presto.metadata.FunctionRegistry;
+import com.facebook.presto.metadata.GlobalFunctionRegistry;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateFunction;
@@ -34,7 +35,7 @@ import static org.testng.Assert.assertEquals;
 public class TestRoutines
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final FunctionRegistry FUNCTION_REGISTRY = new FunctionRegistry(TYPE_MANAGER, true);
+    private static final FunctionRegistry FUNCTION_REGISTRY = new GlobalFunctionRegistry(TYPE_MANAGER, true);
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test

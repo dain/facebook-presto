@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionInfo;
-import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.spi.ConnectorSession;
@@ -70,6 +69,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.getCommonSuperType;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.isSupportedLiteralType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.toExpression;
@@ -538,7 +539,7 @@ public class ExpressionInterpreter
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            Type commonType = FunctionRegistry.getCommonSuperType(firstType, secondType).get();
+            Type commonType = getCommonSuperType(firstType, secondType).get();
 
             FunctionInfo firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
             FunctionInfo secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
@@ -744,7 +745,7 @@ public class ExpressionInterpreter
 
             // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
             // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
-            if (optimize && !FunctionRegistry.isSupportedLiteralType(expressionTypes.get(node))) {
+            if (optimize && !isSupportedLiteralType(expressionTypes.get(node))) {
                 return new Cast(toExpression(value, expressionTypes.get(node.getExpression())), node.getType(), node.isSafe());
             }
 

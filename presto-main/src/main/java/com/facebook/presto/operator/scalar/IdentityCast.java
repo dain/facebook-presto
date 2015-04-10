@@ -25,7 +25,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.google.common.base.Preconditions.checkArgument;
 

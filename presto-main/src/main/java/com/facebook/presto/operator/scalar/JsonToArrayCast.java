@@ -30,7 +30,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.metadata.FunctionRegistry.operatorInfo;
+import static com.facebook.presto.metadata.GlobalFunctionRegistry.operatorInfo;
 import static com.facebook.presto.metadata.Signature.typeParameter;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.type.ArrayType.toStackRepresentation;
