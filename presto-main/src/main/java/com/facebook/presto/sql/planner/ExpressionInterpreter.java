@@ -632,7 +632,7 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            FunctionInfo function = metadata.resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
+            FunctionInfo function = metadata.getFunctionRegistry().resolveFunction(node.getName(), Lists.transform(argumentTypes, Type::getTypeSignature), false);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && !function.getNullableArguments().get(i)) {

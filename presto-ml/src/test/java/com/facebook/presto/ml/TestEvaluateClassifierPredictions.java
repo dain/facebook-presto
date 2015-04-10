@@ -14,6 +14,7 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.RowPageBuilder;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
@@ -43,6 +44,7 @@ import static org.testng.Assert.assertEquals;
 public class TestEvaluateClassifierPredictions
 {
     private final Metadata metadata = new MetadataManager();
+    private final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
 
     @Test
     public void testEvaluateClassifierPredictions()
@@ -53,7 +55,10 @@ public class TestEvaluateClassifierPredictions
         typeRegistry.addType(RegressorType.REGRESSOR);
         typeRegistry.addType(ModelType.MODEL);
         metadata.addFunctions(new MLFunctionFactory(typeRegistry).listFunctions());
-        InternalAggregationFunction aggregation = metadata.getExactFunction(new Signature("evaluate_classifier_predictions", StandardTypes.VARCHAR, StandardTypes.BIGINT, StandardTypes.BIGINT)).getAggregationFunction();
+        InternalAggregationFunction aggregation = functionRegistry.getExactFunction(new Signature("evaluate_classifier_predictions",
+                StandardTypes.VARCHAR,
+                StandardTypes.BIGINT,
+                StandardTypes.BIGINT)).getAggregationFunction();
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty(), Optional.empty(), 1.0).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(new BlockBuilderStatus(), 1);

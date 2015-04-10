@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -103,9 +104,10 @@ public class TestHashAggregationOperator
             throws Exception
     {
         MetadataManager metadata = new MetadataManager();
-        InternalAggregationFunction countVarcharColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
-        InternalAggregationFunction countBooleanColumn = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)), false).getAggregationFunction();
-        InternalAggregationFunction maxVarcharColumn = metadata.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        InternalAggregationFunction countVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
+        InternalAggregationFunction countBooleanColumn = functionRegistry.resolveFunction(QualifiedName.of("count"), ImmutableList.of(parseTypeSignature(StandardTypes.BOOLEAN)), false).getAggregationFunction();
+        InternalAggregationFunction maxVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
@@ -151,7 +153,10 @@ public class TestHashAggregationOperator
     public void testMemoryLimit(boolean hashEnabled)
     {
         MetadataManager metadata = new MetadataManager();
-        InternalAggregationFunction maxVarcharColumn = metadata.resolveFunction(QualifiedName.of("max"), ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)), false).getAggregationFunction();
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        InternalAggregationFunction maxVarcharColumn = functionRegistry.resolveFunction(QualifiedName.of("max"),
+                ImmutableList.of(parseTypeSignature(StandardTypes.VARCHAR)),
+                false).getAggregationFunction();
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT);

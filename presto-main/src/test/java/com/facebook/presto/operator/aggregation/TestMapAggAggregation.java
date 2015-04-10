@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Page;
@@ -45,13 +46,14 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 public class TestMapAggAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
+    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
 
     @Test
     public void testDuplicateKeysValues()
             throws Exception
     {
         MapType mapType = new MapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction aggFunc = functionRegistry.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR)).getAggregationFunction();
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -59,7 +61,7 @@ public class TestMapAggAggregation
                 new Page(createDoublesBlock(1.0, 1.0, 1.0), createStringsBlock("a", "b", "c")));
 
         mapType = new MapType(DOUBLE, BIGINT);
-        aggFunc = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT)).getAggregationFunction();
+        aggFunc = functionRegistry.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT)).getAggregationFunction();
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -72,7 +74,7 @@ public class TestMapAggAggregation
             throws Exception
     {
         MapType mapType = new MapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR)).getAggregationFunction();
+        InternalAggregationFunction aggFunc = functionRegistry.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.VARCHAR)).getAggregationFunction();
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -80,7 +82,7 @@ public class TestMapAggAggregation
                 new Page(createDoublesBlock(1.0, 2.0, 3.0), createStringsBlock("a", "b", "c")));
 
         mapType = new MapType(DOUBLE, BIGINT);
-        aggFunc = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT)).getAggregationFunction();
+        aggFunc = functionRegistry.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BIGINT)).getAggregationFunction();
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -88,7 +90,7 @@ public class TestMapAggAggregation
                 new Page(createDoublesBlock(1.0, 2.0, 3.0), createLongsBlock(3L, 2L, 1L)));
 
         mapType = new MapType(DOUBLE, BOOLEAN);
-        aggFunc = metadata.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BOOLEAN)).getAggregationFunction();
+        aggFunc = functionRegistry.getExactFunction(new Signature(NAME, mapType.getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.BOOLEAN)).getAggregationFunction();
         assertAggregation(
                 aggFunc,
                 1.0,
@@ -100,7 +102,7 @@ public class TestMapAggAggregation
     public void testNull()
             throws Exception
     {
-        InternalAggregationFunction doubleDouble = metadata.getExactFunction(new Signature(NAME, new MapType(DOUBLE, DOUBLE).getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
+        InternalAggregationFunction doubleDouble = functionRegistry.getExactFunction(new Signature(NAME, new MapType(DOUBLE, DOUBLE).getTypeSignature().toString(), StandardTypes.DOUBLE, StandardTypes.DOUBLE)).getAggregationFunction();
         assertAggregation(
                 doubleDouble,
                 1.0,
@@ -130,7 +132,7 @@ public class TestMapAggAggregation
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = new MapType(DOUBLE, arrayType);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME,
+        InternalAggregationFunction aggFunc = functionRegistry.getExactFunction(new Signature(NAME,
                                                                                     mapType.getTypeSignature().toString(),
                                                                                     StandardTypes.DOUBLE,
                                                                                     arrayType.getTypeSignature().toString())).getAggregationFunction();
@@ -164,7 +166,7 @@ public class TestMapAggAggregation
     {
         MapType innerMapType = new MapType(VARCHAR, VARCHAR);
         MapType mapType = new MapType(DOUBLE, innerMapType);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME,
+        InternalAggregationFunction aggFunc = functionRegistry.getExactFunction(new Signature(NAME,
                 mapType.getTypeSignature().toString(),
                 StandardTypes.DOUBLE,
                 innerMapType.getTypeSignature().toString())).getAggregationFunction();
@@ -198,7 +200,7 @@ public class TestMapAggAggregation
     {
         RowType innerRowType = new RowType(ImmutableList.of(BIGINT, DOUBLE), Optional.of(ImmutableList.of("f1", "f2")));
         MapType mapType = new MapType(DOUBLE, innerRowType);
-        InternalAggregationFunction aggFunc = metadata.getExactFunction(new Signature(NAME,
+        InternalAggregationFunction aggFunc = functionRegistry.getExactFunction(new Signature(NAME,
                 mapType.getTypeSignature().toString(),
                 StandardTypes.DOUBLE,
                 innerRowType.getTypeSignature().toString())).getAggregationFunction();

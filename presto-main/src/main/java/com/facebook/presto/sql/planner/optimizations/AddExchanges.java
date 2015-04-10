@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.FunctionInfo;
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableLayoutResult;
@@ -125,6 +126,7 @@ public class AddExchanges
         private final Session session;
         private final boolean distributedIndexJoins;
         private final boolean distributedJoins;
+        private final FunctionRegistry functionRegistry;
 
         public Rewriter(SymbolAllocator allocator, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, boolean distributedIndexJoins, boolean distributedJoins)
         {
@@ -134,6 +136,7 @@ public class AddExchanges
             this.session = session;
             this.distributedIndexJoins = distributedIndexJoins;
             this.distributedJoins = distributedJoins;
+            functionRegistry = metadata.getFunctionRegistry();
         }
 
         @Override
@@ -176,7 +179,7 @@ public class AddExchanges
         {
             boolean decomposable = node.getFunctions()
                     .values().stream()
-                    .map(metadata::getExactFunction)
+                    .map(functionRegistry::getExactFunction)
                     .map(FunctionInfo::getAggregationFunction)
                     .allMatch(InternalAggregationFunction::isDecomposable);
 
@@ -208,7 +211,7 @@ public class AddExchanges
             Map<Symbol, Symbol> intermediateMask = new HashMap<>();
             for (Map.Entry<Symbol, FunctionCall> entry : node.getAggregations().entrySet()) {
                 Signature signature = node.getFunctions().get(entry.getKey());
-                FunctionInfo function = metadata.getExactFunction(signature);
+                FunctionInfo function = functionRegistry.getExactFunction(signature);
 
                 Symbol intermediateSymbol = allocator.newSymbol(function.getName().getSuffix(), metadata.getType(function.getIntermediateType()));
                 intermediateCalls.put(intermediateSymbol, entry.getValue());

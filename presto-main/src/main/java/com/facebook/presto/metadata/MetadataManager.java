@@ -155,18 +155,6 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionInfo resolveFunction(QualifiedName name, List<TypeSignature> parameterTypes, boolean approximate)
-    {
-        return functions.resolveFunction(name, parameterTypes, approximate);
-    }
-
-    @Override
-    public FunctionInfo getExactFunction(Signature handle)
-    {
-        return functions.getExactFunction(handle);
-    }
-
-    @Override
     public boolean isAggregationFunction(QualifiedName name)
     {
         return functions.isAggregationFunction(name);

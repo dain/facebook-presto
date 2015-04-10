@@ -531,7 +531,7 @@ public class LocalExecutionPlanner
                 }
                 Symbol symbol = entry.getKey();
                 Signature signature = node.getSignatures().get(symbol);
-                FunctionInfo functionInfo = metadata.getExactFunction(signature);
+                FunctionInfo functionInfo = metadata.getFunctionRegistry().getExactFunction(signature);
                 Type type = metadata.getType(functionInfo.getReturnType());
                 windowFunctionsBuilder.add(functionInfo.bindWindowFunction(type, arguments.build()));
                 windowFunctionOutputSymbolsBuilder.add(symbol);
@@ -1441,7 +1441,7 @@ public class LocalExecutionPlanner
                 sampleWeightChannel = Optional.of(source.getLayout().get(sampleWeight.get()));
             }
 
-            return metadata.getExactFunction(function).getAggregationFunction().bind(arguments, maskChannel, sampleWeightChannel, confidence);
+            return metadata.getFunctionRegistry().getExactFunction(function).getAggregationFunction().bind(arguments, maskChannel, sampleWeightChannel, confidence);
         }
 
         private PhysicalOperation planGlobalAggregation(int operatorId, AggregationNode node, PhysicalOperation source)

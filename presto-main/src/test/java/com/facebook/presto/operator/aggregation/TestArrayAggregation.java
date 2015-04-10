@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.Page;
@@ -35,12 +36,13 @@ import static com.facebook.presto.type.TypeUtils.buildStructuralSlice;
 public class TestArrayAggregation
 {
     private static final MetadataManager metadata = new MetadataManager();
+    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
 
     @Test
     public void testEmpty()
             throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
         assertAggregation(
                 bigIntAgg,
                 1.0,
@@ -52,7 +54,7 @@ public class TestArrayAggregation
     public void testNullOnly()
             throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
         assertAggregation(
                 bigIntAgg,
                 1.0,
@@ -64,7 +66,7 @@ public class TestArrayAggregation
     public void testNullPartial()
             throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
         assertAggregation(
                 bigIntAgg,
                 1.0,
@@ -76,7 +78,7 @@ public class TestArrayAggregation
     public void testBoolean()
         throws Exception
     {
-        InternalAggregationFunction booleanAgg = metadata.getExactFunction(new Signature("array_agg", "array<boolean>", "boolean")).getAggregationFunction();
+        InternalAggregationFunction booleanAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<boolean>", "boolean")).getAggregationFunction();
         assertAggregation(
                 booleanAgg,
                 1.0,
@@ -88,7 +90,7 @@ public class TestArrayAggregation
     public void testBigInt()
         throws Exception
     {
-        InternalAggregationFunction bigIntAgg = metadata.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
+        InternalAggregationFunction bigIntAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<bigint>", "bigint")).getAggregationFunction();
         assertAggregation(
                 bigIntAgg,
                 1.0,
@@ -100,7 +102,7 @@ public class TestArrayAggregation
     public void testVarchar()
         throws Exception
     {
-        InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<varchar>", "varchar")).getAggregationFunction();
+        InternalAggregationFunction varcharAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<varchar>", "varchar")).getAggregationFunction();
         assertAggregation(
                 varcharAgg,
                 1.0,
@@ -112,7 +114,7 @@ public class TestArrayAggregation
     public void testDate()
             throws Exception
     {
-        InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<date>", "date")).getAggregationFunction();
+        InternalAggregationFunction varcharAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<date>", "date")).getAggregationFunction();
         assertAggregation(
                 varcharAgg,
                 1.0,
@@ -124,7 +126,7 @@ public class TestArrayAggregation
     public void testArray()
             throws Exception
     {
-        InternalAggregationFunction varcharAgg = metadata.getExactFunction(new Signature("array_agg", "array<array<bigint>>", "array<bigint>")).getAggregationFunction();
+        InternalAggregationFunction varcharAgg = functionRegistry.getExactFunction(new Signature("array_agg", "array<array<bigint>>", "array<bigint>")).getAggregationFunction();
 
         BlockBuilder builder = VARBINARY.createBlockBuilder(new BlockBuilderStatus(), 100);
 
