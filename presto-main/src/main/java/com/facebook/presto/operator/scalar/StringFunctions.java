@@ -18,7 +18,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.SqlType;
 import com.google.common.base.Ascii;
-import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -35,6 +36,10 @@ import static com.facebook.presto.type.ArrayType.toStackRepresentation;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+/**
+ * Current implementation is based on code points from Unicode and does ignore grapheme cluster boundaries.
+ * Therefore only some methods work correctly with grapheme cluster boundaries.
+ */
 public final class StringFunctions
 {
     private StringFunctions() {}
@@ -70,12 +75,12 @@ public final class StringFunctions
         return concat;
     }
 
-    @Description("length of the given string")
+    @Description("count of code points of the given string")
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
     public static long length(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
-        return slice.length();
+        return UnicodeUtil.countCodePoints(slice);
     }
 
     @Description("greedily removes occurrences of a pattern in a string")
@@ -91,21 +96,97 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice replace(@SqlType(StandardTypes.VARCHAR) Slice str, @SqlType(StandardTypes.VARCHAR) Slice search, @SqlType(StandardTypes.VARCHAR) Slice replace)
     {
-        String replaced = str.toString(UTF_8).replace(
-                search.toString(UTF_8),
-                replace.toString(UTF_8));
-        return Slices.copiedBuffer(replaced, UTF_8);
+        // Empty search?
+        if (UnicodeUtil.isEmpty(search)) {
+            // With empty `search` we insert `replace` in front of every character and and the end
+            Slice buffer = Slices.allocate((UnicodeUtil.countCodePoints(str) + 1) * replace.length() + str.length());
+            // Always start with replace
+            buffer.setBytes(0, replace);
+            int indexBuffer = replace.length();
+            // After every code point insert `replace`
+            int index = 0;
+            while (index < str.length()) {
+                int startByte = str.getUnsignedByte(index);
+                int codePointLength = UnicodeUtil.lengthOfCodePoint(startByte);
+                // Append current code point
+                buffer.setBytes(indexBuffer, str, index, codePointLength);
+                indexBuffer += codePointLength;
+                // Append `replace`
+                buffer.setBytes(indexBuffer, replace);
+                indexBuffer += replace.length();
+                // Advance pointer to current code point
+                index += codePointLength;
+            }
+
+            return buffer;
+        }
+        // Allocate a reasonable buffer
+        Slice buffer = Slices.allocate(str.length());
+
+        int index = 0;
+        int indexBuffer = 0;
+        while (index < str.length()) {
+            int matchIndex = UnicodeUtil.findUtf8IndexOfString(str, index, str.length(), search);
+            // Found a match?
+            if (matchIndex < 0) {
+                // No match found so copy the rest of string
+                int bytesToCopy = str.length() - index;
+                buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy);
+                buffer.setBytes(indexBuffer, str, index, bytesToCopy);
+                indexBuffer += bytesToCopy;
+
+                break;
+            }
+
+            int bytesToCopy = matchIndex - index;
+            buffer = Slices.ensureSize(buffer, indexBuffer + bytesToCopy + replace.length());
+            // Non empty match?
+            if (bytesToCopy > 0) {
+                buffer.setBytes(indexBuffer, str, index, bytesToCopy);
+                indexBuffer += bytesToCopy;
+            }
+            // Non empty replace?
+            if (!UnicodeUtil.isEmpty(replace)) {
+                buffer.setBytes(indexBuffer, replace);
+                indexBuffer += replace.length();
+            }
+            // Continue searching after match
+            index = matchIndex + search.length();
+        }
+
+        return buffer.slice(0, indexBuffer);
     }
 
-    @Description("reverses the given string")
+    @Description("reverse all code points in a given string")
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
     public static Slice reverse(@SqlType(StandardTypes.VARCHAR) Slice slice)
     {
         Slice reverse = Slices.allocate(slice.length());
-        for (int i = 0, j = slice.length() - 1; i < slice.length(); i++, j--) {
-            reverse.setByte(j, slice.getByte(i));
+
+        for (int i = 0, j = slice.length(); i < slice.length(); ) {
+            int startByte = slice.getUnsignedByte(i);
+            int codePointLength = UnicodeUtil.lengthOfCodePoint(startByte);
+
+            if (codePointLength == 1) {
+                // In the special case of length 1, we can set the byte directly
+                j--;
+                reverse.setByte(j, startByte);
+            }
+            else {
+                j -= codePointLength;
+                // Enough bytes left in string?
+                if (j < 0) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid utf8 encoding");
+                }
+                // No check made for the following condition because it is check indirect with j >= 0
+                assert i + codePointLength <= slice.length();
+                reverse.setBytes(j, slice, i, codePointLength);
+            }
+
+            i += codePointLength;
         }
+
         return reverse;
     }
 
@@ -114,17 +195,13 @@ public final class StringFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long stringPosition(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice substring)
     {
-        if (substring.length() > string.length()) {
+        int index = UnicodeUtil.findUtf8IndexOfString(string, 0, string.length(), substring);
+        if (index < 0) {
             return 0;
         }
-
-        for (int i = 0; i <= (string.length() - substring.length()); i++) {
-            if (string.equals(i, substring.length(), substring, 0, substring.length())) {
-                return i + 1;
-            }
+        else {
+            return UnicodeUtil.countCodePoints(string, index) + 1;
         }
-
-        return 0;
     }
 
     @Description("suffix starting at given index")
@@ -132,7 +209,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice substr(@SqlType(StandardTypes.VARCHAR) Slice slice, @SqlType(StandardTypes.BIGINT) long start)
     {
-        return substr(slice, start, slice.length());
+        return substr(slice, start, UnicodeUtil.countCodePoints(slice));
     }
 
     @Description("substring of given length starting at an index")
@@ -144,36 +221,38 @@ public final class StringFunctions
             return Slices.EMPTY_SLICE;
         }
 
+        int stringLength = UnicodeUtil.countCodePoints(slice);
         if (start > 0) {
             // make start zero-based
             start--;
         }
         else {
             // negative start is relative to end of string
-            start += slice.length();
+            start += stringLength;
             if (start < 0) {
                 return Slices.EMPTY_SLICE;
             }
         }
 
-        if ((start + length) > slice.length()) {
-            length = slice.length() - start;
+        if ((start + length) > stringLength) {
+            length = stringLength - start;
         }
 
-        if (start >= slice.length()) {
+        if (start >= stringLength) {
             return Slices.EMPTY_SLICE;
         }
+        // Find start and end withing UTF-8 bytes
+        int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(slice, Ints.checkedCast(start));
+        int indexEnd = UnicodeUtil.findUtf8IndexOfCodePointPosition(slice, Ints.checkedCast(start + length));
 
-        return slice.slice((int) start, (int) length);
+        return slice.slice(indexStart, indexEnd - indexStart);
     }
 
     @ScalarFunction
     @SqlType("array<varchar>")
     public static Slice split(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter)
     {
-        List<String> result = Splitter.on(delimiter.toStringUtf8())
-                .splitToList(string.toStringUtf8());
-        return toStackRepresentation(result, VARCHAR);
+        return split(string, delimiter, string.length());
     }
 
     @ScalarFunction
@@ -182,13 +261,38 @@ public final class StringFunctions
     {
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
-        List<String> result = Splitter.on(delimiter.toStringUtf8())
-                .limit((int) limit)
-                .splitToList(string.toStringUtf8());
-        return toStackRepresentation(result, VARCHAR);
+        checkCondition(!UnicodeUtil.isEmpty(delimiter), INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
+        // If limit is one, the last and only element is the complete string
+        if (limit == 1) {
+            return toStackRepresentation(ImmutableList.of(string), VARCHAR);
+        }
+
+        List<Slice> parts = new ArrayList<>();
+
+        int index = 0;
+        while (index < string.length()) {
+            int splitIndex = UnicodeUtil.findUtf8IndexOfString(string, index, string.length(), delimiter);
+            // Found split?
+            if (splitIndex < 0) {
+                break;
+            }
+            // Add the part from current index to found split
+            parts.add(string.slice(index, splitIndex - index));
+            // Continue searching after delimiter
+            index = splitIndex + delimiter.length();
+            // Reached limit-1 parts so we can stop
+            if (parts.size() == limit - 1) {
+                break;
+            }
+        }
+        // Non-empty rest of string?
+        if (index < string.length()) {
+            parts.add(string.slice(index, string.length() - index));
+        }
+
+        return toStackRepresentation(parts, VARCHAR);
     }
 
-    // TODO: Implement a more efficient string search
     @Nullable
     @Description("splits a string by a delimiter and returns the specified field (counting from one)")
     @ScalarFunction
@@ -196,28 +300,39 @@ public final class StringFunctions
     public static Slice splitPart(@SqlType(StandardTypes.VARCHAR) Slice string, @SqlType(StandardTypes.VARCHAR) Slice delimiter, @SqlType(StandardTypes.BIGINT) long index)
     {
         checkCondition(index > 0, INVALID_FUNCTION_ARGUMENT, "Index must be greater than zero");
-
-        if (delimiter.length() == 0) {
-            if (index > string.length()) {
+        // Empty delimiter? Then every character will be a split
+        if (UnicodeUtil.isEmpty(delimiter)) {
+            int stringLength = UnicodeUtil.countCodePoints(string);
+            if (index > stringLength) {
                 // index is too big, null is returned
                 return null;
             }
-            return string.slice((int) (index - 1), 1);
+            // Copy only one code point at index
+            int indexStart = UnicodeUtil.findUtf8IndexOfCodePointPosition(string, Ints.checkedCast(index - 1));
+            int length = UnicodeUtil.lengthOfCodePoint(string.getUnsignedByte(indexStart));
+            // Check whether we have an invalid utf8 encoding
+            if (indexStart + length > string.length()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid utf8 encoding");
+            }
+
+            return string.slice(indexStart, length);
         }
 
-        int previousIndex = 0;
         int matchCount = 0;
 
-        for (int i = 0; i <= (string.length() - delimiter.length()); i++) {
-            if (string.equals(i, delimiter.length(), delimiter, 0, delimiter.length())) {
-                matchCount++;
-                if (matchCount == index) {
-                    return string.slice(previousIndex, i - previousIndex);
-                }
-                // noinspection AssignmentToForLoopParameter
-                i += (delimiter.length() - 1);
-                previousIndex = i + 1;
+        int previousIndex = 0;
+        while (previousIndex < string.length()) {
+            int matchIndex = UnicodeUtil.findUtf8IndexOfString(string, previousIndex, string.length(), delimiter);
+            // No match
+            if (matchIndex < 0) {
+                break;
             }
+            // Reached the requested part?
+            if (++matchCount == index) {
+                return string.slice(previousIndex, matchIndex - previousIndex);
+            }
+            // Continue searching after the delimiter
+            previousIndex = matchIndex + delimiter.length();
         }
 
         if (matchCount == index - 1) {
