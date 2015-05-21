@@ -37,7 +37,7 @@ import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class HashOutputBufferManager
+class HashOutputBufferManager
         implements OutputBufferManager
 {
     private final Consumer<OutputBuffers> outputBufferTarget;
