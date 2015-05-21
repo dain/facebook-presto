@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -59,6 +60,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 @ThreadSafe
 public class SharedBuffer
@@ -272,7 +274,7 @@ public class SharedBuffer
         return result;
     }
 
-    public synchronized ListenableFuture<BufferResult> get(TaskId outputId, long startingSequenceId, DataSize maxSize)
+    public synchronized CompletableFuture<BufferResult> get(TaskId outputId, long startingSequenceId, DataSize maxSize)
     {
         checkNotNull(outputId, "outputId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
@@ -281,7 +283,7 @@ public class SharedBuffer
         // this can happen with limit queries
         BufferState state = this.state.get();
         if (state != FAILED && !state.canAddBuffers() && namedBuffers.get(outputId) == null) {
-            return immediateFuture(emptyResults(0, true));
+            return completedFuture(emptyResults(0, true));
         }
 
         // return a future for data
@@ -511,7 +513,7 @@ public class SharedBuffer
     @Immutable
     private class GetBufferResult
     {
-        private final SettableFuture<BufferResult> future = SettableFuture.create();
+        private final CompletableFuture<BufferResult> future = new CompletableFuture<>();
 
         private final TaskId outputId;
         private final long startingSequenceId;
@@ -524,7 +526,7 @@ public class SharedBuffer
             this.maxSize = maxSize;
         }
 
-        public SettableFuture<BufferResult> getFuture()
+        public CompletableFuture<BufferResult> getFuture()
         {
             return future;
         }
@@ -549,7 +551,7 @@ public class SharedBuffer
                 // this could be a request for a buffer that never existed, but that is ok since the buffer
                 // could have been destroyed before the creation message was received
                 if (state.get() == FINISHED) {
-                    future.set(emptyResults(namedBuffer == null ? 0 : namedBuffer.getSequenceId(), true));
+                    future.complete(emptyResults(namedBuffer == null ? 0 : namedBuffer.getSequenceId(), true));
                     return true;
                 }
 
@@ -560,7 +562,7 @@ public class SharedBuffer
 
                 // if request is for pages before the current position, just return an empty page
                 if (startingSequenceId < namedBuffer.getSequenceId()) {
-                    future.set(emptyResults(startingSequenceId, false));
+                    future.complete(emptyResults(startingSequenceId, false));
                     return true;
                 }
 
@@ -575,10 +577,10 @@ public class SharedBuffer
                     return false;
                 }
 
-                future.set(bufferResult);
+                future.complete(bufferResult);
             }
             catch (Throwable throwable) {
-                future.setException(throwable);
+                future.completeExceptionally(throwable);
             }
             return true;
         }

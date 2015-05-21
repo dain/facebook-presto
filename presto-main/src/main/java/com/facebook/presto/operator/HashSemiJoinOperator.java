@@ -25,10 +25,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.util.MoreFutures.tryGetUnchecked;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 
 public class HashSemiJoinOperator
         implements Operator
@@ -148,7 +148,7 @@ public class HashSemiJoinOperator
         }
 
         if (channelSet == null) {
-            channelSet = tryGetUnchecked(channelSetFuture);
+            channelSet = tryGetFutureValue(channelSetFuture).orElse(null);
         }
         return channelSet != null;
     }
