@@ -54,19 +54,15 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.concurrent.AsyncQueue;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.INITIAL_EMPTY_OUTPUT_BUFFERS;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -497,68 +493,6 @@ public class TestSourcePartitionedScheduler
         {
             queue.finish();
             closed = true;
-        }
-    }
-
-    private static class AsyncQueue<T>
-    {
-        private enum FinishedMarker
-        {
-            FINISHED
-        }
-
-        private final BlockingQueue<Object> queue = new LinkedBlockingQueue<>();
-        private final AtomicReference<CompletableFuture<?>> futureReference = new AtomicReference<>(new CompletableFuture<>());
-
-        public void add(T element)
-        {
-            queue.add(element);
-            futureReference.get().complete(null);
-        }
-
-        public CompletableFuture<List<T>> getBatchAsync(int maxSize)
-        {
-            return futureReference.get().thenApply(x -> getBatch(maxSize));
-        }
-
-        private List<T> getBatch(int maxSize)
-        {
-            // wait for at least one element and then take as may extra elements as possible
-            // if an error has been registered, the take will succeed immediately because
-            // will be at least one finished marker in the queue
-            List<Object> elements = new ArrayList<>(maxSize);
-            queue.drainTo(elements, maxSize);
-
-            // check if we got the finished marker in our list
-            int finishedIndex = elements.indexOf(FinishedMarker.FINISHED);
-            if (finishedIndex >= 0) {
-                // add the finish marker back to the queue so future callers will not block indefinitely
-                queue.add(FinishedMarker.FINISHED);
-                // drop all elements after the finish marker (this shouldn't happen in a normal finish, but be safe)
-                elements = elements.subList(0, finishedIndex);
-            }
-
-            // if the queue is empty and the current future is finished, create a new one so
-            // readers can be notified when the queue has elements to read
-            if (queue.isEmpty()) {
-                CompletableFuture<?> future = futureReference.get();
-                if (!future.isDone()) {
-                    futureReference.compareAndSet(future, new CompletableFuture<>());
-                }
-            }
-
-            return ImmutableList.copyOf((Collection<T>) elements);
-        }
-
-        public void finish()
-        {
-            queue.add(FinishedMarker.FINISHED);
-            futureReference.get().complete(null);
-        }
-
-        public boolean isFinished()
-        {
-            return queue.peek() == FinishedMarker.FINISHED;
         }
     }
 }
