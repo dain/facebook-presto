@@ -34,6 +34,8 @@ import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.SqlQueryQueueManager;
+import com.facebook.presto.execution.scheduler.ExecutionPolicy;
+import com.facebook.presto.execution.scheduler.LegacyExecutionPolicy;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.ViewDefinition;
@@ -153,6 +155,9 @@ public class CoordinatorModule
         bindDataDefinitionTask(binder, executionBinder, DropView.class, DropViewTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
         bindDataDefinitionTask(binder, executionBinder, ResetSession.class, ResetSessionTask.class);
+
+        MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
+        executionPolicyBinder.addBinding("legacy").to(LegacyExecutionPolicy.class);
 
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
     }

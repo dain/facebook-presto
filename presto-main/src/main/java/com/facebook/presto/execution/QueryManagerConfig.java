@@ -46,6 +46,8 @@ public class QueryManagerConfig
     private Duration remoteTaskMinErrorDuration = new Duration(2, TimeUnit.MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
+    private String queryExecutionPolicy = "legacy";
+
     public String getQueueConfigFile()
     {
         return queueConfigFile;
@@ -247,6 +249,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setRemoteTaskMaxCallbackThreads(int remoteTaskMaxCallbackThreads)
     {
         this.remoteTaskMaxCallbackThreads = remoteTaskMaxCallbackThreads;
+        return this;
+    }
+
+    @NotNull
+    public String getQueryExecutionPolicy()
+    {
+        return queryExecutionPolicy;
+    }
+
+    @Config("query.execution-policy")
+    public QueryManagerConfig setQueryExecutionPolicy(String queryExecutionPolicy)
+    {
+        this.queryExecutionPolicy = queryExecutionPolicy;
         return this;
     }
 }
