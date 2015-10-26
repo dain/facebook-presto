@@ -320,7 +320,16 @@ public class MetadataManager
                 effectivePredicate = TupleDomain.columnWiseUnion(partitionDomains);
             }
 
-            ConnectorTableLayout layout = new ConnectorTableLayout(new LegacyTableLayoutHandle(connectorTable, partitions), Optional.empty(), effectivePredicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of());
+            ConnectorTableLayout layout = new ConnectorTableLayout(
+                    new LegacyTableLayoutHandle(connectorTable, partitions),
+                    Optional.empty(),
+                    effectivePredicate,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(partitionDomains),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of());
             layouts = ImmutableList.of(new ConnectorTableLayoutResult(layout, result.getUndeterminedTupleDomain()));
         }
 
@@ -342,7 +351,16 @@ public class MetadataManager
             if (!partitionDomains.isEmpty()) {
                 predicate = TupleDomain.columnWiseUnion(partitionDomains);
             }
-            return new TableLayout(handle, new ConnectorTableLayout(legacyHandle, Optional.empty(), predicate, Optional.empty(), Optional.of(partitionDomains), ImmutableList.of()));
+            return new TableLayout(handle, new ConnectorTableLayout(
+                    legacyHandle,
+                    Optional.empty(),
+                    predicate,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(partitionDomains),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of()));
         }
 
         String connectorId = handle.getConnectorId();

@@ -30,6 +30,9 @@ public class ConnectorTableLayout
     private final TupleDomain<ColumnHandle> predicate;
     private final Optional<List<TupleDomain<ColumnHandle>>> discretePredicates;
     private final Optional<Set<ColumnHandle>> partitioningColumns;
+    private final Optional<List<ColumnHandle>> distributionColumns;
+    private final Optional<ConnectorDistributionHandle> distributionHandle;
+    private final Optional<ConnectorPartitionFunctionHandle> partitionFunction;
     private final List<LocalProperty<ColumnHandle>> localProperties;
 
     public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
@@ -37,6 +40,9 @@ public class ConnectorTableLayout
         this(handle,
                 Optional.empty(),
                 TupleDomain.all(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 emptyList());
@@ -47,21 +53,29 @@ public class ConnectorTableLayout
             Optional<List<ColumnHandle>> columns,
             TupleDomain<ColumnHandle> predicate,
             Optional<Set<ColumnHandle>> partitioningColumns,
+            Optional<List<ColumnHandle>> distributionColumns,
             Optional<List<TupleDomain<ColumnHandle>>> discretePredicates,
+            Optional<ConnectorDistributionHandle> distributionHandle,
+            Optional<ConnectorPartitionFunctionHandle> partitionFunction,
             List<LocalProperty<ColumnHandle>> localProperties)
     {
         requireNonNull(handle, "handle is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(partitioningColumns, "partitioningColumns is null");
+        requireNonNull(distributionColumns, "distributionColumns is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(discretePredicates, "discretePredicates is null");
+        requireNonNull(partitionFunction, "partitionFunction is null");
         requireNonNull(localProperties, "localProperties is null");
 
         this.handle = handle;
         this.columns = columns;
         this.partitioningColumns = partitioningColumns;
+        this.distributionColumns = distributionColumns;
         this.predicate = predicate;
         this.discretePredicates = discretePredicates;
+        this.distributionHandle = distributionHandle;
+        this.partitionFunction = partitionFunction;
         this.localProperties = localProperties;
     }
 
@@ -102,6 +116,28 @@ public class ConnectorTableLayout
     }
 
     /**
+     * If present, the set of columns used to distribute the table across the workers.  A present
+     * and empty set is mean the table is entirely contained on a single worker.
+     * <p>
+     * If the table is distributed, the connector guarantees that each combination of values for
+     * the distributed columns will be contained within a single worker.
+     */
+    public Optional<List<ColumnHandle>> getDistributionColumns()
+    {
+        return distributionColumns;
+    }
+
+    public Optional<ConnectorDistributionHandle> getDistributionHandle()
+    {
+        return distributionHandle;
+    }
+
+    public Optional<ConnectorPartitionFunctionHandle> getPartitionFunction()
+    {
+        return partitionFunction;
+    }
+
+    /**
      * A collection of discrete predicates describing the data in this layout. The union of
      * these predicates is expected to be equivalent to the overall predicate returned
      * by {@link #getPredicate()}. They may be used by the engine for further optimizations.
@@ -122,7 +158,7 @@ public class ConnectorTableLayout
     @Override
     public int hashCode()
     {
-        return Objects.hash(handle, columns, predicate, discretePredicates, partitioningColumns, localProperties);
+        return Objects.hash(handle, columns, predicate, discretePredicates, partitioningColumns, distributionColumns, localProperties);
     }
 
     @Override
@@ -140,6 +176,7 @@ public class ConnectorTableLayout
                 && Objects.equals(this.predicate, other.predicate)
                 && Objects.equals(this.discretePredicates, other.discretePredicates)
                 && Objects.equals(this.partitioningColumns, other.partitioningColumns)
+                && Objects.equals(this.distributionColumns, other.distributionColumns)
                 && Objects.equals(this.localProperties, other.localProperties);
     }
 }

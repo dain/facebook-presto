@@ -128,6 +128,9 @@ public class TpchMetadata
                 TupleDomain.all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
                 partitioningColumns,
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 localProperties);
 
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));

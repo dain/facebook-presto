@@ -17,6 +17,8 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.sql.planner.DistributionHandle;
+import com.facebook.presto.sql.planner.PartitionFunctionHandle;
 
 import java.util.List;
 import java.util.Optional;
@@ -61,6 +63,23 @@ public class TableLayout
     public Optional<Set<ColumnHandle>> getPartitioningColumns()
     {
         return layout.getPartitioningColumns();
+    }
+
+    public Optional<List<ColumnHandle>> getDistributionColumns()
+    {
+        return layout.getDistributionColumns();
+    }
+
+    public Optional<DistributionHandle> getDistributionHandle()
+    {
+        return layout.getDistributionHandle()
+                .map(connectorHandle -> new DistributionHandle(Optional.of(handle.getConnectorId()), connectorHandle));
+    }
+
+    public Optional<PartitionFunctionHandle> getPartitionFunction()
+    {
+        return layout.getPartitionFunction()
+                .map(connectorHandle -> new PartitionFunctionHandle(Optional.of(handle.getConnectorId()), connectorHandle));
     }
 
     public Optional<List<TupleDomain<ColumnHandle>>> getDiscretePredicates()

@@ -223,6 +223,9 @@ public class BlackHoleMetadata
                 TupleDomain.none(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of());
     }
 }

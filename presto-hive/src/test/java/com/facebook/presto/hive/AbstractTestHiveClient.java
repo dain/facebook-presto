@@ -385,6 +385,7 @@ public abstract class AbstractTestHiveClient
                         fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("textfile")), Range.equal(VARCHAR, utf8Slice("sequencefile")), Range.equal(VARCHAR, utf8Slice("rctext")), Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
                         dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L), Range.equal(BIGINT, 4L)), false))),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(ImmutableList.of(
                         TupleDomain.withColumnDomains(ImmutableMap.of(
                                 dsColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("2012-12-29"))), false),
@@ -403,6 +404,8 @@ public abstract class AbstractTestHiveClient
                                 fileFormatColumn, Domain.create(ValueSet.ofRanges(Range.equal(VARCHAR, utf8Slice("rcbinary"))), false),
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 4L)), false)))
                 )),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of());
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned, TupleDomain.all()));
         unpartitionedTableLayout = new ConnectorTableLayout(
@@ -410,7 +413,10 @@ public abstract class AbstractTestHiveClient
                 Optional.empty(),
                 TupleDomain.all(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(ImmutableList.of(TupleDomain.all())),
+                Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of());
         timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
