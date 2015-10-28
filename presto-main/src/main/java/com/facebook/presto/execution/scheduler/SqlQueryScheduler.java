@@ -26,6 +26,7 @@ import com.facebook.presto.execution.SqlStageExecution.ExchangeLocation;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.Distribution;
@@ -191,7 +192,8 @@ public class SqlQueryScheduler
 
         Optional<int[]> bucketToPartition = Optional.empty();
         DistributionHandle distributionHandle = plan.getFragment().getDistribution();
-        if (distributionHandle instanceof SystemDistributionHandle && ((SystemDistributionHandle) distributionHandle).getPlanDistribution() != SOURCE) {
+        ConnectorDistributionHandle connectorDistributionHandle = distributionHandle.getConnectorHandle();
+        if (connectorDistributionHandle instanceof SystemDistributionHandle && ((SystemDistributionHandle) connectorDistributionHandle).getPlanDistribution() != SOURCE) {
             Distribution distribution = distributionManager.getDistribution(session, distributionHandle);
             stageSchedulers.put(stageId, new FixedCountScheduler(stage, distribution.getPartitionToNode()));
             bucketToPartition = Optional.of(distribution.getBucketToPartition());

@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorDistributionProvider;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
@@ -41,6 +42,7 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSinkProvider;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.planner.DistributionManager;
 import io.airlift.log.Logger;
 
 import javax.annotation.PreDestroy;
@@ -70,6 +72,7 @@ public class ConnectorManager
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
+    private final DistributionManager distributionManager;
 
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
@@ -87,6 +90,7 @@ public class ConnectorManager
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
             IndexManager indexManager,
+            DistributionManager distributionManager,
             PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             Map<String, ConnectorFactory> connectorFactories,
@@ -97,6 +101,7 @@ public class ConnectorManager
         this.splitManager = splitManager;
         this.pageSourceManager = pageSourceManager;
         this.indexManager = indexManager;
+        this.distributionManager = distributionManager;
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
@@ -231,6 +236,14 @@ public class ConnectorManager
         catch (UnsupportedOperationException ignored) {
         }
 
+        ConnectorDistributionProvider distributionProvider = null;
+        try {
+            distributionProvider = connector.getConnectorDistributionProvider();
+            requireNonNull(distributionProvider, format("Connector %s returned a null distribution provider", connectorId));
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
+
         List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
         requireNonNull(tableProperties, format("Connector %s returned null table properties", connectorId));
 
@@ -267,6 +280,10 @@ public class ConnectorManager
 
         if (indexResolver != null) {
             indexManager.addIndexResolver(connectorId, indexResolver);
+        }
+
+        if (distributionProvider != null) {
+            distributionManager.addDistributionProvider(connectorId, distributionProvider);
         }
 
         if (accessControl != null) {

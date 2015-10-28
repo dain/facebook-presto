@@ -14,10 +14,12 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPartitionFunctionHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -132,6 +134,26 @@ public class HandleResolver
         throw new IllegalArgumentException("No connector for insert table handle: " + insertHandle);
     }
 
+    public String getId(ConnectorDistributionHandle distributionHandle)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(distributionHandle)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for distribution handle: " + distributionHandle);
+    }
+
+    public String getId(ConnectorPartitionFunctionHandle functionHandle)
+    {
+        for (Entry<String, ConnectorHandleResolver> entry : handleIdResolvers.entrySet()) {
+            if (entry.getValue().canHandle(functionHandle)) {
+                return entry.getKey();
+            }
+        }
+        throw new IllegalArgumentException("No connector for function handle: " + functionHandle);
+    }
+
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass();
@@ -170,6 +192,16 @@ public class HandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass(String id)
     {
         return resolverFor(id).getInsertTableHandleClass();
+    }
+
+    public Class<? extends ConnectorDistributionHandle> getDistributionHandleClass(String id)
+    {
+        return resolverFor(id).getDistributionHandleHandleClass();
+    }
+
+    public Class<? extends ConnectorPartitionFunctionHandle> getPartitionFunctionHandle(String id)
+    {
+        return resolverFor(id).getConnectorPartitionFunctionHandle();
     }
 
     public ConnectorHandleResolver resolverFor(String id)

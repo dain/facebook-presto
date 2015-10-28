@@ -13,20 +13,22 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public final class SystemDistributionHandle
-        implements DistributionHandle
+        implements ConnectorDistributionHandle
 {
     public static DistributionHandle createSystemDistribution(PlanDistribution planDistribution)
     {
-        return new SystemDistributionHandle(planDistribution);
+        return new DistributionHandle(Optional.empty(), new SystemDistributionHandle(planDistribution));
     }
 
     private final PlanDistribution planDistribution;

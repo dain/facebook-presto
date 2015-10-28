@@ -124,8 +124,8 @@ public class TpchMetadata
 
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new TpchTableLayoutHandle(tableHandle),
-                Optional.<List<ColumnHandle>>empty(),
-                TupleDomain.<ColumnHandle>all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
+                Optional.empty(),
+                TupleDomain.all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
                 partitioningColumns,
                 Optional.empty(),
                 localProperties);

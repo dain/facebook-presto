@@ -25,6 +25,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.sql.planner.DistributionHandle;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -200,10 +201,11 @@ public class SqlTaskExecution
 
     private static boolean isSingleNodeDistribution(DistributionHandle distributionHandle)
     {
-        if (!(distributionHandle instanceof SystemDistributionHandle)) {
+        ConnectorDistributionHandle connectorHandle = distributionHandle.getConnectorHandle();
+        if (!(connectorHandle instanceof SystemDistributionHandle)) {
             return false;
         }
-        PlanDistribution planDistribution = ((SystemDistributionHandle) distributionHandle).getPlanDistribution();
+        PlanDistribution planDistribution = ((SystemDistributionHandle) connectorHandle).getPlanDistribution();
         return planDistribution == COORDINATOR_ONLY || planDistribution == SINGLE;
     }
 

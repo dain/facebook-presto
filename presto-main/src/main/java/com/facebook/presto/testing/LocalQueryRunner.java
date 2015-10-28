@@ -208,6 +208,7 @@ public class LocalQueryRunner
                 splitManager,
                 pageSourceManager,
                 indexManager,
+                distributionManager,
                 pageSinkManager,
                 new HandleResolver(),
                 ImmutableMap.<String, ConnectorFactory>of(),

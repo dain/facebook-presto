@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -333,9 +334,9 @@ public class PlanFragmenter
                 return PlanDistribution.SOURCE;
             }
 
-            DistributionHandle distributionHandle = this.distributionHandle.get();
-            if (distributionHandle instanceof SystemDistributionHandle) {
-                return ((SystemDistributionHandle) distributionHandle).getPlanDistribution();
+            ConnectorDistributionHandle connectorHandle = distributionHandle.get().getConnectorHandle();
+            if (connectorHandle instanceof SystemDistributionHandle) {
+                return ((SystemDistributionHandle) connectorHandle).getPlanDistribution();
             }
             return PlanDistribution.SOURCE;
         }

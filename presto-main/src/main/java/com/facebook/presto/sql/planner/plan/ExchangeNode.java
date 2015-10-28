@@ -72,6 +72,7 @@ public class ExchangeNode
         requireNonNull(inputs, "inputs is null");
 
         if (type == Type.REPARTITION) {
+            checkArgument(distribution.isPresent(), "Repartitioning exchange must contain a distribution");
             checkArgument(partitionFunction.isPresent(), "Repartitioning exchange must contain a partition function");
         }
         partitionFunction

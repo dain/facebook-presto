@@ -41,6 +41,16 @@ public interface ConnectorHandleResolver
         return false;
     }
 
+    default boolean canHandle(ConnectorDistributionHandle distributionHandle)
+    {
+        return false;
+    }
+
+    default boolean canHandle(ConnectorPartitionFunctionHandle functionHandle)
+    {
+        return false;
+    }
+
     Class<? extends ConnectorTableHandle> getTableHandleClass();
 
     default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
@@ -63,6 +73,16 @@ public interface ConnectorHandleResolver
     }
 
     default Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorDistributionHandle> getDistributionHandleHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Class<? extends ConnectorPartitionFunctionHandle> getConnectorPartitionFunctionHandle()
     {
         throw new UnsupportedOperationException();
     }

@@ -13,125 +13,67 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.operator.BucketFunction;
-import com.facebook.presto.operator.HashGenerator;
-import com.facebook.presto.operator.InterpretedHashGenerator;
-import com.facebook.presto.operator.PrecomputedHashGenerator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.base.MoreObjects;
+import com.facebook.presto.spi.ConnectorPartitionFunctionHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
-public enum PartitionFunctionHandle
+public class PartitionFunctionHandle
 {
-    SINGLE {
-        @Override
-        public BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
-        {
-            checkArgument(function.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
-            checkArgument(function.getBucketToPartition().get().length == 1, "Single partition can only have one partition");
-            checkArgument(function.getBucketToPartition().get()[0] == 0, "Single partition binding must contain a single bucket with id 0");
-            return new SingleBucketFunction();
-        }
-    },
-    HASH {
-        @Override
-        public BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
-        {
-            checkArgument(function.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
-            int bucketCount = function.getBucketToPartition().get().length;
-            if (function.getHashColumn().isPresent()) {
-                return new HashBucketFunction(new PrecomputedHashGenerator(0), bucketCount);
-            }
-            else {
-                int[] hashChannels = new int[partitionChannelTypes.size()];
-                for (int i = 0; i < partitionChannelTypes.size(); i++) {
-                    hashChannels[i] = i;
-                }
+    private final Optional<String> connectorId;
+    private final ConnectorPartitionFunctionHandle connectorHandle;
 
-                return new HashBucketFunction(new InterpretedHashGenerator(partitionChannelTypes, hashChannels), bucketCount);
-            }
-        }
-    },
-    ROUND_ROBIN {
-        @Override
-        public BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes)
-        {
-            checkArgument(function.getBucketToPartition().isPresent(), "Bucket to partition must be set before a partition function can be created");
-            return new RoundRobinBucketFunction(function.getBucketToPartition().get().length);
-        }
-    };
-
-    public abstract BucketFunction createBucketFunction(PartitionFunctionBinding function, List<Type> partitionChannelTypes);
-
-    private static class SingleBucketFunction
-            implements BucketFunction
+    @JsonCreator
+    public PartitionFunctionHandle(
+            @JsonProperty("connectorId") Optional<String> connectorId,
+            @JsonProperty("connectorHandle") ConnectorPartitionFunctionHandle connectorHandle)
     {
-        @Override
-        public int getBucket(Page page, int position)
-        {
-            return 0;
-        }
+        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
-    private static class RoundRobinBucketFunction
-            implements BucketFunction
+    @JsonProperty
+    public Optional<String> getConnectorId()
     {
-        private final int bucketCount;
-        private int counter;
-
-        public RoundRobinBucketFunction(int bucketCount)
-        {
-            checkArgument(bucketCount > 0, "bucketCount must be at least 1");
-            this.bucketCount = bucketCount;
-        }
-
-        @Override
-        public int getBucket(Page page, int position)
-        {
-            int bucket = counter % bucketCount;
-            counter = (counter + 1) & 0x7fff_ffff;
-            return bucket;
-        }
-
-        @Override
-        public String toString()
-        {
-            return MoreObjects.toStringHelper(this)
-                    .add("bucketCount", bucketCount)
-                    .toString();
-        }
+        return connectorId;
     }
 
-    private static class HashBucketFunction
-            implements BucketFunction
+    @JsonProperty
+    public ConnectorPartitionFunctionHandle getConnectorHandle()
     {
-        private final HashGenerator generator;
-        private final int bucketCount;
+        return connectorHandle;
+    }
 
-        public HashBucketFunction(HashGenerator generator, int bucketCount)
-        {
-            checkArgument(bucketCount > 0, "partitionCount must be at least 1");
-            this.generator = generator;
-            this.bucketCount = bucketCount;
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
         }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PartitionFunctionHandle that = (PartitionFunctionHandle) o;
+        return Objects.equals(connectorId, that.connectorId) &&
+                Objects.equals(connectorHandle, that.connectorHandle);
+    }
 
-        @Override
-        public int getBucket(Page page, int position)
-        {
-            return generator.getPartition(bucketCount, position, page);
-        }
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(connectorId, connectorHandle);
+    }
 
-        @Override
-        public String toString()
-        {
-            return MoreObjects.toStringHelper(this)
-                    .add("generator", generator)
-                    .add("bucketCount", bucketCount)
-                    .toString();
+    @Override
+    public String toString()
+    {
+        if (connectorId.isPresent()) {
+            return connectorId.get() + ":" + connectorHandle;
         }
+        return connectorHandle.toString();
     }
 }
