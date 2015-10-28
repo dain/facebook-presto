@@ -76,9 +76,19 @@ public class DistributedExecutionPlanner
             dependencies.add(plan(childPlan, session));
         }
 
+        Optional<DistributionHandle> distributionHandle = Optional.empty();
+        switch (currentFragment.getDistribution()) {
+            case COORDINATOR_ONLY:
+            case SINGLE:
+            case FIXED:
+                distributionHandle = Optional.of(new SystemDistributionHandle(currentFragment.getDistribution()));
+                break;
+        }
+
         return new StageExecutionPlan(
                 currentFragment,
                 splits,
+                distributionHandle,
                 dependencies.build());
     }
 
