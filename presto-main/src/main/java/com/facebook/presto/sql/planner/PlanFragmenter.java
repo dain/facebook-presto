@@ -153,7 +153,7 @@ public class PlanFragmenter
                 }
             }
             else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
-                context.get().setFixedDistribution();
+                context.get().setDistribution(exchange.getDistribution().orElse(createSystemDistribution(PlanDistribution.FIXED)));
 
                 FragmentProperties childProperties = new FragmentProperties()
                         .setPartitionedOutput(exchange.getPartitionFunction().get())
@@ -221,16 +221,21 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setFixedDistribution()
+        public FragmentProperties setDistribution(DistributionHandle distribution)
         {
             if (isDistributed()) {
+                // todo fix comment below
+                // if already distributed on a custom source distribution, just skip
                 PlanDistribution planDistribution = getDistribution();
-                checkState(planDistribution == PlanDistribution.FIXED,
+                if (planDistribution != PlanDistribution.SOURCE) {
+                    checkState(planDistribution == PlanDistribution.FIXED,
                             "Cannot set distribution to %s. Already set to %s",
                             PlanDistribution.FIXED,
                             planDistribution);
+                    return this;
+                }
             }
-            distributionHandle = Optional.of(createSystemDistribution(PlanDistribution.FIXED));
+            distributionHandle = Optional.of(distribution);
 
             return this;
         }

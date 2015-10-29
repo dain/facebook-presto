@@ -247,7 +247,7 @@ public class UnaliasSymbolReferences
                     }
                 }
             }
-            return new ExchangeNode(node.getId(), node.getType(), partitionFunction, sources, outputs.build(), inputs);
+            return new ExchangeNode(node.getId(), node.getType(), node.getDistribution(), partitionFunction, sources, outputs.build(), inputs);
         }
 
         @Override

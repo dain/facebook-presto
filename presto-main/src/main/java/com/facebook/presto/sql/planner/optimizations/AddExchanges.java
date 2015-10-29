@@ -944,6 +944,7 @@ public class AddExchanges
                             idAllocator.getNextId(),
                             ExchangeNode.Type.GATHER,
                             Optional.empty(),
+                            Optional.empty(),
                             partitionedChildren,
                             node.getOutputSymbols(),
                             partitionedOutputLayouts);

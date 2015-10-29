@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.sql.planner.DistributionHandle;
 import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.Symbol;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +25,8 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.FIXED;
+import static com.facebook.presto.sql.planner.SystemDistributionHandle.createSystemDistribution;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +46,7 @@ public class ExchangeNode
 
     private final List<PlanNode> sources;
 
+    private final Optional<DistributionHandle> distribution;
     private final Optional<PartitionFunctionBinding> partitionFunction;
 
     // for each source, the list of inputs corresponding to each output
@@ -52,6 +56,7 @@ public class ExchangeNode
     public ExchangeNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("type") Type type,
+            @JsonProperty("distribution") Optional<DistributionHandle> distribution,
             @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputs") List<Symbol> outputs,
@@ -61,6 +66,7 @@ public class ExchangeNode
 
         requireNonNull(type, "type is null");
         requireNonNull(sources, "sources is null");
+        requireNonNull(distribution, "distribution is null");
         requireNonNull(partitionFunction, "partitionFunction is null");
         requireNonNull(outputs, "outputs is null");
         requireNonNull(inputs, "inputs is null");
@@ -82,6 +88,7 @@ public class ExchangeNode
 
         this.type = type;
         this.sources = sources;
+        this.distribution = distribution;
         this.partitionFunction = partitionFunction;
         this.outputs = ImmutableList.copyOf(outputs);
         this.inputs = ImmutableList.copyOf(inputs);
@@ -92,6 +99,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.REPARTITION,
+                Optional.of(createSystemDistribution(FIXED)),
                 Optional.of(partitionFunction),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
@@ -104,6 +112,7 @@ public class ExchangeNode
                 id,
                 ExchangeNode.Type.REPLICATE,
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
                 ImmutableList.of(child.getOutputSymbols()));
@@ -114,6 +123,7 @@ public class ExchangeNode
         return new ExchangeNode(
                 id,
                 ExchangeNode.Type.GATHER,
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(child),
                 child.getOutputSymbols(),
@@ -137,6 +147,12 @@ public class ExchangeNode
     public List<Symbol> getOutputSymbols()
     {
         return outputs;
+    }
+
+    @JsonProperty
+    public Optional<DistributionHandle> getDistribution()
+    {
+        return distribution;
     }
 
     @JsonProperty

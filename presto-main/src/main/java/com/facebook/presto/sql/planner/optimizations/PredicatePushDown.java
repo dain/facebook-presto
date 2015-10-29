@@ -174,6 +174,7 @@ public class PredicatePushDown
                 return new ExchangeNode(
                         node.getId(),
                         node.getType(),
+                        node.getDistribution(),
                         node.getPartitionFunction(),
                         builder.build(),
                         node.getOutputSymbols(),
