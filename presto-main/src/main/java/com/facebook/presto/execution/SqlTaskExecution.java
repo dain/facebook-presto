@@ -25,10 +25,12 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
+import com.facebook.presto.sql.planner.DistributionHandle;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.facebook.presto.sql.planner.SystemDistributionHandle;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -145,7 +147,7 @@ public class SqlTaskExecution
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             List<DriverFactory> driverFactories;
             try {
-                PlanDistribution distribution = fragment.getDistribution();
+                DistributionHandle distributionHandle = fragment.getDistribution();
                 LocalExecutionPlan localExecutionPlan = planner.plan(
                         taskContext.getSession(),
                         fragment.getRoot(),
@@ -153,7 +155,7 @@ public class SqlTaskExecution
                         fragment.getSymbols(),
                         fragment.getPartitionFunction(),
                         sharedBuffer,
-                        distribution == COORDINATOR_ONLY || distribution == SINGLE,
+                        isSingleNodeDistribution(distributionHandle),
                         fragment.getPartitionedSource() == null);
                 driverFactories = localExecutionPlan.getDriverFactories();
             }
@@ -194,6 +196,15 @@ public class SqlTaskExecution
 
             sharedBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
+    }
+
+    private static boolean isSingleNodeDistribution(DistributionHandle distributionHandle)
+    {
+        if (!(distributionHandle instanceof SystemDistributionHandle)) {
+            return false;
+        }
+        PlanDistribution planDistribution = ((SystemDistributionHandle) distributionHandle).getPlanDistribution();
+        return planDistribution == COORDINATOR_ONLY || planDistribution == SINGLE;
     }
 
     //

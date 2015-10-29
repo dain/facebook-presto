@@ -51,7 +51,7 @@ public class PlanFragment
     private final PlanNode root;
     private final Map<Symbol, Type> symbols;
     private final List<Symbol> outputLayout;
-    private final PlanDistribution distribution;
+    private final DistributionHandle distribution;
     private final PlanNodeId partitionedSource;
     private final List<Type> types;
     private final PlanNode partitionedSourceNode;
@@ -64,7 +64,7 @@ public class PlanFragment
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Map<Symbol, Type> symbols,
             @JsonProperty("outputLayout") List<Symbol> outputLayout,
-            @JsonProperty("distribution") PlanDistribution distribution,
+            @JsonProperty("distribution") DistributionHandle distribution,
             @JsonProperty("partitionedSource") PlanNodeId partitionedSource,
             @JsonProperty("partitionFunction") Optional<PartitionFunctionBinding> partitionFunction)
     {
@@ -116,7 +116,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public PlanDistribution getDistribution()
+    public DistributionHandle getDistribution()
     {
         return distribution;
     }

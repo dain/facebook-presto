@@ -29,9 +29,10 @@ import com.facebook.presto.execution.StageState;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.Distribution;
+import com.facebook.presto.sql.planner.DistributionHandle;
 import com.facebook.presto.sql.planner.DistributionManager;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
+import com.facebook.presto.sql.planner.SystemDistributionHandle;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +59,7 @@ import static com.facebook.presto.execution.StageState.RUNNING;
 import static com.facebook.presto.execution.StageState.SCHEDULED;
 import static com.facebook.presto.spi.StandardErrorCode.INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableMap;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
@@ -188,13 +190,13 @@ public class SqlQueryScheduler
         stages.add(stage);
 
         Optional<int[]> bucketToPartition = Optional.empty();
-        if (plan.getDistributionHandle().isPresent()) {
-            Distribution distribution = distributionManager.getDistribution(session, plan.getDistributionHandle().get());
+        DistributionHandle distributionHandle = plan.getFragment().getDistribution();
+        if (distributionHandle instanceof SystemDistributionHandle && ((SystemDistributionHandle) distributionHandle).getPlanDistribution() != SOURCE) {
+            Distribution distribution = distributionManager.getDistribution(session, distributionHandle);
             stageSchedulers.put(stageId, new FixedCountScheduler(stage, distribution.getPartitionToNode()));
             bucketToPartition = Optional.of(distribution.getBucketToPartition());
         }
         else {
-            checkArgument(plan.getFragment().getDistribution() == PlanDistribution.SOURCE, "Expected plan fragment to be source distributed");
             SplitSource splitSource = plan.getDataSource().get();
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(splitSource.getDataSourceName());
             stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, splitSource, new SplitPlacementPolicy(nodeSelector, stage::getAllTasks), splitBatchSize));

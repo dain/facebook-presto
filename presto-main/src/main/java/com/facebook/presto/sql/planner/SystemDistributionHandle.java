@@ -14,27 +14,30 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.COORDINATOR_ONLY;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.FIXED;
-import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SINGLE;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemDistributionHandle
         implements DistributionHandle
 {
-    private final PlanDistribution planDistribution;
-
-    public SystemDistributionHandle(PlanDistribution planDistribution)
+    public static DistributionHandle createSystemDistribution(PlanDistribution planDistribution)
     {
-        this.planDistribution = requireNonNull(planDistribution, "planDistribution is null");
-        checkArgument(planDistribution == COORDINATOR_ONLY || planDistribution == SINGLE || planDistribution == FIXED, "Unsupported plan distribution %s", planDistribution);
+        return new SystemDistributionHandle(planDistribution);
     }
 
+    private final PlanDistribution planDistribution;
+
+    @JsonCreator
+    public SystemDistributionHandle(@JsonProperty("planDistribution") PlanDistribution planDistribution)
+    {
+        this.planDistribution = requireNonNull(planDistribution, "planDistribution is null");
+    }
+
+    @JsonProperty
     public PlanDistribution getPlanDistribution()
     {
         return planDistribution;
@@ -62,8 +65,6 @@ public final class SystemDistributionHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("planDistribution", planDistribution)
-                .toString();
+        return planDistribution.toString();
     }
 }

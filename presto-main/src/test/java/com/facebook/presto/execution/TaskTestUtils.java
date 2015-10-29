@@ -36,7 +36,6 @@ import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.DistributionManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TestingColumnHandle;
 import com.facebook.presto.sql.planner.TestingTableHandle;
@@ -53,6 +52,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
+import static com.facebook.presto.sql.planner.SystemDistributionHandle.createSystemDistribution;
 
 public final class TaskTestUtils
 {
@@ -80,7 +81,7 @@ public final class TaskTestUtils
                     null),
             ImmutableMap.<Symbol, Type>of(SYMBOL, VARCHAR),
             ImmutableList.of(SYMBOL),
-            PlanDistribution.SOURCE,
+            createSystemDistribution(SOURCE),
             TABLE_SCAN_NODE_ID,
             Optional.empty());
 

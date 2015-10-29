@@ -40,6 +40,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SOURCE;
+import static com.facebook.presto.sql.planner.SystemDistributionHandle.createSystemDistribution;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static org.testng.Assert.assertEquals;
@@ -187,7 +188,7 @@ public class TestPhasedExecutionSchedule
                 planNode,
                 types.build(),
                 planNode.getOutputSymbols(),
-                SOURCE,
+                createSystemDistribution(SOURCE),
                 planNode.getId(),
                 Optional.empty());
     }

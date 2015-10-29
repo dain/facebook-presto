@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.planner.SystemDistributionHandle.createSystemDistribution;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -90,7 +91,7 @@ public class PlanFragmenter
                     root,
                     Maps.filterKeys(types, in(dependencies)),
                     properties.getOutputLayout(),
-                    properties.getDistribution(),
+                    properties.getDistributionHandle(),
                     properties.getDistributeBy(),
                     properties.getPartitionFunction());
 
@@ -194,7 +195,7 @@ public class PlanFragmenter
         private Optional<List<Symbol>> outputLayout = Optional.empty();
         private Optional<PartitionFunctionBinding> partitionFunction = Optional.empty();
 
-        private Optional<PlanDistribution> distribution = Optional.empty();
+        private Optional<DistributionHandle> distributionHandle = Optional.empty();
         private PlanNodeId distributeBy;
 
         public List<SubPlan> getChildren()
@@ -204,26 +205,32 @@ public class PlanFragmenter
 
         public FragmentProperties setSingleNodeDistribution()
         {
-            if (distribution.isPresent()) {
-                PlanDistribution value = distribution.get();
-                checkState(value == PlanDistribution.SINGLE || value == PlanDistribution.COORDINATOR_ONLY,
-                        "Cannot overwrite distribution with %s (currently set to %s)", PlanDistribution.SINGLE, value);
+            if (isDistributed()) {
+                PlanDistribution planDistribution = getDistribution();
+                if (planDistribution == PlanDistribution.COORDINATOR_ONLY) {
+                    // ignore an attempt to change from coordinator only to single
+                    return this;
+                }
+                checkState(planDistribution == PlanDistribution.SINGLE,
+                        "Cannot overwrite distribution with %s (currently set to %s)",
+                        PlanDistribution.SINGLE,
+                        planDistribution);
             }
-            else {
-                distribution = Optional.of(PlanDistribution.SINGLE);
-            }
+            distributionHandle = Optional.of(createSystemDistribution(PlanDistribution.SINGLE));
 
             return this;
         }
 
         public FragmentProperties setFixedDistribution()
         {
-            distribution.ifPresent(current -> checkState(current == PlanDistribution.FIXED,
-                    "Cannot set distribution to %s. Already set to %s",
-                    PlanDistribution.FIXED,
-                    current));
-
-            distribution = Optional.of(PlanDistribution.FIXED);
+            if (isDistributed()) {
+                PlanDistribution planDistribution = getDistribution();
+                checkState(planDistribution == PlanDistribution.FIXED,
+                            "Cannot set distribution to %s. Already set to %s",
+                            PlanDistribution.FIXED,
+                            planDistribution);
+            }
+            distributionHandle = Optional.of(createSystemDistribution(PlanDistribution.FIXED));
 
             return this;
         }
@@ -231,29 +238,31 @@ public class PlanFragmenter
         public FragmentProperties setCoordinatorOnlyDistribution()
         {
             // only SINGLE can be upgraded to COORDINATOR_ONLY
-            distribution.ifPresent(current -> checkState(distribution.get() == PlanDistribution.SINGLE,
-                    "Cannot overwrite distribution with %s (currently set to %s)",
-                    PlanDistribution.COORDINATOR_ONLY,
-                    distribution.get()));
-
-            distribution = Optional.of(PlanDistribution.COORDINATOR_ONLY);
+            if (isDistributed()) {
+                PlanDistribution planDistribution = getDistribution();
+                checkState(planDistribution == PlanDistribution.SINGLE || planDistribution == PlanDistribution.COORDINATOR_ONLY,
+                        "Cannot overwrite distribution with %s (currently set to %s)",
+                        PlanDistribution.COORDINATOR_ONLY,
+                        planDistribution);
+            }
+            distributionHandle = Optional.of(createSystemDistribution(PlanDistribution.COORDINATOR_ONLY));
 
             return this;
         }
 
         public FragmentProperties setSourceDistribution(PlanNodeId source)
         {
-            if (distribution.isPresent()) {
+            if (isDistributed()) {
                 // If already SINGLE or COORDINATOR_ONLY, leave it as is (this is for single-node execution)
-                checkState(distribution.get() == PlanDistribution.SINGLE || distribution.get() == PlanDistribution.COORDINATOR_ONLY,
+                PlanDistribution planDistribution = getDistribution();
+                checkState(planDistribution == PlanDistribution.SINGLE || planDistribution == PlanDistribution.COORDINATOR_ONLY,
                         "Cannot overwrite distribution with %s (currently set to %s)",
                         PlanDistribution.SOURCE,
-                        distribution.get());
+                        planDistribution);
+                return this;
             }
-            else {
-                distribution = Optional.of(PlanDistribution.SOURCE);
-                this.distributeBy = source;
-            }
+            distributeBy = source;
+            distributionHandle = Optional.of(createSystemDistribution(PlanDistribution.SOURCE));
 
             return this;
         }
@@ -308,9 +317,27 @@ public class PlanFragmenter
             return partitionFunction;
         }
 
+        public boolean isDistributed()
+        {
+            return distributeBy != null || distributionHandle.isPresent();
+        }
+
         public PlanDistribution getDistribution()
         {
-            return distribution.get();
+            if (distributeBy != null) {
+                return PlanDistribution.SOURCE;
+            }
+
+            DistributionHandle distributionHandle = this.distributionHandle.get();
+            if (distributionHandle instanceof SystemDistributionHandle) {
+                return ((SystemDistributionHandle) distributionHandle).getPlanDistribution();
+            }
+            return PlanDistribution.SOURCE;
+        }
+
+        public DistributionHandle getDistributionHandle()
+        {
+            return distributionHandle.get();
         }
 
         public PlanNodeId getDistributeBy()

@@ -26,7 +26,6 @@ import com.facebook.presto.spi.predicate.Marker;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.planner.PlanFragment.PlanDistribution;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -83,6 +82,8 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.DomainUtils.simplifyDomain;
+import static com.facebook.presto.sql.planner.PlanFragment.PlanDistribution.SINGLE;
+import static com.facebook.presto.sql.planner.SystemDistributionHandle.createSystemDistribution;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -170,7 +171,7 @@ public class PlanPrinter
                 plan,
                 types,
                 plan.getOutputSymbols(),
-                PlanDistribution.SINGLE,
+                createSystemDistribution(SINGLE),
                 plan.getId(),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment));
