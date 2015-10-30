@@ -14,7 +14,9 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorPartitionFunctionHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -56,6 +58,18 @@ public class TpchHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorDistributionHandle distributionHandle)
+    {
+        return distributionHandle instanceof TpchDistributionHandle;
+    }
+
+    @Override
+    public boolean canHandle(ConnectorPartitionFunctionHandle functionHandle)
+    {
+        return functionHandle instanceof TpchPartitionFunctionHandle;
+    }
+
+    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return TpchTableHandle.class;
@@ -77,5 +91,17 @@ public class TpchHandleResolver
     public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         return TpchTableLayoutHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorDistributionHandle> getDistributionHandleHandleClass()
+    {
+        return TpchDistributionHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorPartitionFunctionHandle> getConnectorPartitionFunctionHandle()
+    {
+        return TpchPartitionFunctionHandle.class;
     }
 }

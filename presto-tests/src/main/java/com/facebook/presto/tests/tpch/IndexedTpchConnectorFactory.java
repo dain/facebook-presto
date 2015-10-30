@@ -14,6 +14,7 @@
 package com.facebook.presto.tests.tpch;
 
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorDistributionProvider;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexResolver;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.tpch.TpchDistributionProvider;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
@@ -94,6 +96,12 @@ public class IndexedTpchConnectorFactory
             public Set<SystemTable> getSystemTables()
             {
                 return ImmutableSet.of(new ExampleSystemTable());
+            }
+
+            @Override
+            public ConnectorDistributionProvider getConnectorDistributionProvider()
+            {
+                return new TpchDistributionProvider(connectorId, nodeManager, splitsPerNode);
             }
         };
     }

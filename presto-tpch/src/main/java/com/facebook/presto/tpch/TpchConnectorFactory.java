@@ -14,6 +14,7 @@
 package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorDistributionProvider;
 import com.facebook.presto.spi.ConnectorFactory;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
@@ -77,6 +78,12 @@ public class TpchConnectorFactory
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
                 return new TpchRecordSetProvider();
+            }
+
+            @Override
+            public ConnectorDistributionProvider getConnectorDistributionProvider()
+            {
+                return new TpchDistributionProvider(connectorId, nodeManager, splitsPerNode);
             }
         };
     }

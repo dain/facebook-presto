@@ -15,7 +15,9 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
+import com.facebook.presto.spi.ConnectorPartitionFunctionHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
@@ -35,6 +37,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.LineItemColumn;
 import io.airlift.tpch.OrderColumn;
+import io.airlift.tpch.OrderGenerator;
 import io.airlift.tpch.TpchColumn;
 import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchEntity;
@@ -100,23 +103,32 @@ public class TpchMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
+    public List<ConnectorTableLayoutResult> getTableLayouts(
+            ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         TpchTableHandle tableHandle = checkType(table, TpchTableHandle.class, "table");
 
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
+        Optional<ConnectorDistributionHandle> distribution = Optional.empty();
+        Optional<ConnectorPartitionFunctionHandle> partitionFunction = Optional.empty();
+        Optional<List<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
-            partitioningColumns = Optional.of(ImmutableSet.of(columns.get(OrderColumn.ORDER_KEY.getColumnName())));
+            distribution = Optional.of(new TpchDistributionHandle(TpchTable.ORDERS.getTableName()));
+            partitionFunction = Optional.of(new TpchPartitionFunctionHandle(TpchTable.ORDERS.getTableName(),
+                    (int) (OrderGenerator.SCALE_BASE * tableHandle.getScaleFactor())));
+            partitioningColumns = Optional.of(ImmutableList.of(columns.get(OrderColumn.ORDER_KEY.getColumnName())));
             localProperties = ImmutableList.of(new SortingProperty<>(columns.get(OrderColumn.ORDER_KEY.getColumnName()), SortOrder.ASC_NULLS_FIRST));
         }
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
-            partitioningColumns = Optional.of(ImmutableSet.of(columns.get(LineItemColumn.ORDER_KEY.getColumnName())));
+            distribution = Optional.of(new TpchDistributionHandle(TpchTable.ORDERS.getTableName()));
+            partitionFunction = Optional.of(new TpchPartitionFunctionHandle(TpchTable.ORDERS.getTableName(),
+                    (int) (OrderGenerator.SCALE_BASE * tableHandle.getScaleFactor())));
+            partitioningColumns = Optional.of(ImmutableList.of(columns.get(LineItemColumn.ORDER_KEY.getColumnName())));
             localProperties = ImmutableList.of(
                     new SortingProperty<>(columns.get(LineItemColumn.ORDER_KEY.getColumnName()), SortOrder.ASC_NULLS_FIRST),
                     new SortingProperty<>(columns.get(LineItemColumn.LINE_NUMBER.getColumnName()), SortOrder.ASC_NULLS_FIRST));
@@ -126,11 +138,11 @@ public class TpchMetadata
                 new TpchTableLayoutHandle(tableHandle),
                 Optional.empty(),
                 TupleDomain.all(), // TODO: return well-known properties (e.g., orderkey > 0, etc)
-                partitioningColumns,
+                partitioningColumns.map(ImmutableSet::copyOf),
+                partitioningColumns, // table is also distributed on the partition columns
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                distribution,
+                partitionFunction,
                 localProperties);
 
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
