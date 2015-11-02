@@ -581,7 +581,13 @@ public class AddExchanges
         public PlanWithProperties visitTableWriter(TableWriterNode node, Context context)
         {
             PlanWithProperties source = node.getSource().accept(this, context);
-            if (redistributeWrites) {
+            if (node.getDistribution().isPresent()) {
+                source = withDerivedProperties(
+                        partitionedExchange(idAllocator.getNextId(), source.getNode(), node.getPartitionFunction().get(), node.getDistribution().get()),
+                        source.getProperties()
+                );
+            }
+            else if (redistributeWrites) {
                 source = withDerivedProperties(
                         partitionedExchange(idAllocator.getNextId(), source.getNode(), new PartitionFunctionBinding(ROUND_ROBIN, ImmutableList.of())),
                         source.getProperties()

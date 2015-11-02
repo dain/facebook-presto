@@ -224,12 +224,7 @@ public class UnaliasSymbolReferences
                     .collect(toImmutableList());
 
             Optional<PartitionFunctionBinding> partitionFunction = node.getPartitionFunction()
-                    .map(function -> new PartitionFunctionBinding(
-                            function.getFunctionHandle(),
-                            canonicalize(function.getPartitioningColumns()),
-                            canonicalize(function.getHashColumn()),
-                            function.isReplicateNulls(),
-                            function.getBucketToPartition()));
+                    .map(this::canonicalizePartitionFunctionBinding);
 
             List<List<Symbol>> inputs = new ArrayList<>();
             for (int i = 0; i < node.getInputs().size(); i++) {
@@ -462,7 +457,17 @@ public class UnaliasSymbolReferences
             ImmutableList<Symbol> columns = node.getColumns().stream()
                     .map(this::canonicalize)
                     .collect(toImmutableList());
-            return new TableWriterNode(node.getId(), source, node.getTarget(), columns, node.getColumnNames(), node.getOutputSymbols(), canonicalize(node.getSampleWeightSymbol()));
+
+            return new TableWriterNode(
+                    node.getId(),
+                    source,
+                    node.getTarget(),
+                    columns,
+                    node.getColumnNames(),
+                    node.getOutputSymbols(),
+                    canonicalize(node.getSampleWeightSymbol()),
+                    node.getDistribution(),
+                    node.getPartitionFunction().map(this::canonicalizePartitionFunctionBinding));
         }
 
         @Override
@@ -561,6 +566,16 @@ public class UnaliasSymbolReferences
                 builder.putAll(canonicalize(entry.getKey()), Iterables.transform(entry.getValue(), this::canonicalize));
             }
             return builder.build();
+        }
+
+        private PartitionFunctionBinding canonicalizePartitionFunctionBinding(PartitionFunctionBinding function)
+        {
+            return new PartitionFunctionBinding(
+                    function.getFunctionHandle(),
+                    canonicalize(function.getPartitioningColumns()),
+                    canonicalize(function.getHashColumn()),
+                    function.isReplicateNulls(),
+                    function.getBucketToPartition());
         }
     }
 }

@@ -150,6 +150,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Get the physical layout for a new table.
+     */
+    default Optional<ConnectorCreateTableLayout> getCreateTableLayout(ConnectorSession connectorSession, ConnectorTableMetadata metadata)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Begin the atomic creation of a table with data.
      */
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)

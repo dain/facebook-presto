@@ -18,6 +18,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.DependencyExtractor;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.SymbolAllocator;
@@ -540,9 +541,23 @@ public class PruneUnreferencedOutputs
             if (node.getSampleWeightSymbol().isPresent()) {
                 expectedInputs.add(node.getSampleWeightSymbol().get());
             }
+            if (node.getPartitionFunction().isPresent()) {
+                PartitionFunctionBinding functionBinding = node.getPartitionFunction().get();
+                expectedInputs.addAll(functionBinding.getPartitioningColumns());
+                functionBinding.getHashColumn().ifPresent(expectedInputs::add);
+            }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new TableWriterNode(node.getId(), source, node.getTarget(), node.getColumns(), node.getColumnNames(), node.getOutputSymbols(), node.getSampleWeightSymbol());
+            return new TableWriterNode(
+                    node.getId(),
+                    source,
+                    node.getTarget(),
+                    node.getColumns(),
+                    node.getColumnNames(),
+                    node.getOutputSymbols(),
+                    node.getSampleWeightSymbol(),
+                    node.getDistribution(),
+                    node.getPartitionFunction());
         }
 
         @Override

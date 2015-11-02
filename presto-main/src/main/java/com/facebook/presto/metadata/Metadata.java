@@ -139,6 +139,8 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
+    Optional<CreateTableLayout> getCreateLayout(Session session, String catalogName, TableMetadata tableMetadata);
+
     /**
      * Begin the atomic creation of a table with data.
      */
@@ -153,6 +155,8 @@ public interface Metadata
      * Rollback a table creation
      */
     void rollbackCreateTable(Session session, OutputTableHandle tableHandle);
+
+    Optional<CreateTableLayout> getInsertLayout(Session session, TableHandle target);
 
     /**
      * Begin insert query

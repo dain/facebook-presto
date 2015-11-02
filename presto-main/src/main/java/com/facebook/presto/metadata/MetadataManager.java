@@ -18,10 +18,13 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorCreateTableLayout;
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPartition;
+import com.facebook.presto.spi.ConnectorPartitionFunctionHandle;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitManager;
@@ -48,6 +51,7 @@ import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -88,11 +92,13 @@ import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -509,6 +515,51 @@ public class MetadataManager
     {
         ConnectorMetadataEntry entry = lookupConnectorFor(tableHandle);
         entry.getMetadata().dropTable(session.toConnectorSession(entry.getCatalog()), tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public Optional<CreateTableLayout> getInsertLayout(Session session, TableHandle target)
+    {
+        List<TableLayout> layouts = getLayouts(session, target, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
+                .stream()
+                .map(TableLayoutResult::getLayout)
+                .filter(layout -> layout.getDistributionHandle().isPresent())
+                .filter(layout -> layout.getPartitionFunction().isPresent())
+                .collect(toImmutableList());
+
+        if (layouts.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (layouts.stream().map(layout -> layout.getDistributionHandle().get()).collect(toImmutableSet()).size() > 1 ||
+                layouts.stream().map(layout -> layout.getPartitionFunction().get()).collect(toImmutableSet()).size() > 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Tables with multiple distributions can not be written");
+        }
+
+        TableLayout layout = layouts.get(0);
+        ConnectorDistributionHandle distributionHandle = layout.getDistributionHandle().get().getConnectorHandle();
+        ConnectorPartitionFunctionHandle partitionFunction = layout.getPartitionFunction().get().getConnectorHandle();
+
+        Map<ColumnHandle, String> columnNamesByHandle = ImmutableBiMap.copyOf(getColumnHandles(session, target)).inverse();
+        ImmutableList<String> partitionColumns = layout.getDistributionColumns().get().stream()
+                .map(columnNamesByHandle::get)
+                .collect(toImmutableList());
+
+        return Optional.of(new CreateTableLayout(layout.getConnectorId(),
+                new ConnectorCreateTableLayout(
+                        distributionHandle,
+                        partitionFunction,
+                        partitionColumns)));
+    }
+
+    @Override
+    public Optional<CreateTableLayout> getCreateLayout(Session session, String catalogName, TableMetadata tableMetadata)
+    {
+        ConnectorMetadataEntry connectorMetadata = connectorsByCatalog.get(catalogName);
+        checkArgument(connectorMetadata != null, "Catalog %s does not exist", catalogName);
+        ConnectorSession connectorSession = session.toConnectorSession(connectorMetadata.getCatalog());
+        return connectorMetadata.getMetadata().getCreateTableLayout(connectorSession, tableMetadata.getMetadata())
+                .map(layout -> new CreateTableLayout(connectorMetadata.getConnectorId(), layout));
     }
 
     @Override
