@@ -19,9 +19,6 @@ import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.tpch.TpchPlugin;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
@@ -29,13 +26,14 @@ import org.testng.annotations.Test;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static com.facebook.presto.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
+import static com.facebook.presto.plugin.blackhole.BlackHoleQueryRunner.createQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -50,20 +48,7 @@ public class BlackHoleSmokeTest
     public void setUp()
             throws Exception
     {
-        try {
-            queryRunner = new DistributedQueryRunner(createSession(), 3);
-
-            queryRunner.installPlugin(new BlackHolePlugin());
-            queryRunner.createCatalog("blackhole", "blackhole", ImmutableMap.of());
-
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
-            assertThatNoBlackHoleTableIsCreated();
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        queryRunner = createQueryRunner();
     }
 
     @AfterTest
@@ -71,14 +56,6 @@ public class BlackHoleSmokeTest
     {
         assertThatNoBlackHoleTableIsCreated();
         queryRunner.close();
-    }
-
-    public static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("blackhole")
-                .setSchema("default")
-                .build();
     }
 
     @Test
@@ -138,6 +115,15 @@ public class BlackHoleSmokeTest
         catch (RuntimeException ex) {
             // expected exception
         }
+    }
+
+    @Test
+    public void createTableWithDistribution()
+    {
+        assertThatQueryReturnsValue(
+                "CREATE TABLE distributed_test WITH ( distributed_on = array['orderkey'] ) as SELECT * FROM tpch.tiny.orders",
+                15000L);
+        assertThatQueryReturnsValue("DROP TABLE distributed_test", true);
     }
 
     @Test
@@ -207,7 +193,7 @@ public class BlackHoleSmokeTest
 
     private List<QualifiedObjectName> listBlackHoleTables()
     {
-        return queryRunner.listTables(createSession(), "blackhole", "default");
+        return queryRunner.listTables(queryRunner.getDefaultSession(), "blackhole", "default");
     }
 
     private void assertThatQueryReturnsValue(String sql, Object expected)
@@ -222,7 +208,7 @@ public class BlackHoleSmokeTest
         int fieldCount = materializedRow.getFieldCount();
         assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
         Object value = materializedRow.getField(0);
-        assertTrue(value == expected, format("Expected '%s', but got '%s'", expected, value));
+        assertTrue(Objects.equals(value, expected), format("Expected '%s', but got '%s'", expected, value));
         assertTrue(Iterables.getOnlyElement(rows).getFieldCount() == 1);
     }
 }
