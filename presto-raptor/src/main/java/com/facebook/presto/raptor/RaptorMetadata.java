@@ -419,6 +419,8 @@ public class RaptorMetadata
             return Optional.empty();
         }
 
+        shardManager.createBuckets(distributionId, bucketCount.getAsInt());
+
         return Optional.of(new DistributionInfo(distributionId, bucketCount.getAsInt(), bucketColumnHandles));
     }
 
