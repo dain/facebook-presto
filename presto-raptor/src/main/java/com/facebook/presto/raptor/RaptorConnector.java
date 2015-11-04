@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.Connector;
+import com.facebook.presto.spi.ConnectorDistributionProvider;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorPageSinkProvider;
@@ -42,6 +43,7 @@ public class RaptorConnector
     private final RaptorPageSourceProvider pageSourceProvider;
     private final RaptorPageSinkProvider pageSinkProvider;
     private final RaptorHandleResolver handleResolver;
+    private final RaptorDistributionProvider distributionProvider;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final Set<SystemTable> systemTables;
@@ -54,6 +56,7 @@ public class RaptorConnector
             RaptorPageSourceProvider pageSourceProvider,
             RaptorPageSinkProvider pageSinkProvider,
             RaptorHandleResolver handleResolver,
+            RaptorDistributionProvider distributionProvider,
             RaptorSessionProperties sessionProperties,
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables)
@@ -64,6 +67,7 @@ public class RaptorConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        this.distributionProvider = requireNonNull(distributionProvider, "distributionProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
@@ -97,6 +101,12 @@ public class RaptorConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
+    }
+
+    @Override
+    public ConnectorDistributionProvider getConnectorDistributionProvider()
+    {
+        return distributionProvider;
     }
 
     @Override

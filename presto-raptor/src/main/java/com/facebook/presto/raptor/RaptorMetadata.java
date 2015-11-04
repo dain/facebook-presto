@@ -25,6 +25,7 @@ import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.raptor.metadata.ViewResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorCreateTableLayout;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadata;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -40,6 +41,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -165,6 +167,7 @@ public class RaptorMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getTableId(),
+                table.getDistributionId(),
                 table.getBucketCount(),
                 OptionalLong.empty(),
                 Optional.ofNullable(sampleWeightColumnHandle));
@@ -259,14 +262,58 @@ public class RaptorMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         RaptorTableHandle handle = checkType(table, RaptorTableHandle.class, "table");
-        ConnectorTableLayout layout = new ConnectorTableLayout(new RaptorTableLayoutHandle(handle, constraint.getSummary()));
+        ConnectorTableLayout layout = getTableLayout(handle, constraint.getSummary());
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 
     @Override
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        return new ConnectorTableLayout(handle);
+        RaptorTableLayoutHandle raptorHandle = checkType(handle, RaptorTableLayoutHandle.class, "handle");
+        return getTableLayout(raptorHandle.getTable(), raptorHandle.getConstraint());
+    }
+
+    @Override
+    public Optional<ConnectorCreateTableLayout> getCreateTableLayout(ConnectorSession connectorSession, ConnectorTableMetadata metadata)
+    {
+        ImmutableMap.Builder<String, RaptorColumnHandle> map = ImmutableMap.builder();
+        long columnId = 1;
+        for (ColumnMetadata column : metadata.getColumns()) {
+            map.put(column.getName(), new RaptorColumnHandle(connectorId, column.getName(), columnId, column.getType()));
+            columnId++;
+        }
+
+        Optional<DistributionInfo> distribution = getOrCreateDistribution(map.build(), metadata.getProperties());
+        if (!distribution.isPresent()) {
+            return Optional.empty();
+        }
+
+        List<String> partitionColumns = distribution.get().getBucketColumns().stream()
+                .map(RaptorColumnHandle::getColumnName)
+                .collect(toList());
+
+        return Optional.of(new ConnectorCreateTableLayout(
+                new RaptorDistributionHandle(connectorId, distribution.get().getDistributionId()),
+                new RaptorPartitionFunctionHandle(connectorId),
+                partitionColumns));
+    }
+
+    private ConnectorTableLayout getTableLayout(RaptorTableHandle handle, TupleDomain<ColumnHandle> constraint)
+    {
+        RaptorTableLayoutHandle layout = new RaptorTableLayoutHandle(handle, constraint);
+        if (!handle.getDistributionId().isPresent()) {
+            return new ConnectorTableLayout(layout);
+        }
+        return new ConnectorTableLayout(
+                layout,
+                Optional.empty(),
+                TupleDomain.all(),
+                Optional.empty(),
+                Optional.of(ImmutableList.copyOf(getBucketColumnHandles(handle.getTableId()))),
+                Optional.empty(),
+                Optional.of(new RaptorDistributionHandle(connectorId, handle.getDistributionId().getAsLong())),
+                Optional.of(new RaptorPartitionFunctionHandle(connectorId)),
+                ImmutableList.of());
     }
 
     @Override
@@ -601,6 +648,7 @@ public class RaptorMetadata
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getTableId(),
+                handle.getDistributionId(),
                 handle.getBucketCount(),
                 OptionalLong.of(transactionId),
                 handle.getSampleWeightColumnHandle());

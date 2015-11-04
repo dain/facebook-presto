@@ -14,9 +14,11 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorPartitionFunctionHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -79,6 +81,20 @@ public class RaptorHandleResolver
     }
 
     @Override
+    public boolean canHandle(ConnectorDistributionHandle distributionHandle)
+    {
+        return (distributionHandle instanceof RaptorDistributionHandle) &&
+                ((RaptorDistributionHandle) distributionHandle).getConnectorId().equals(connectorId);
+    }
+
+    @Override
+    public boolean canHandle(ConnectorPartitionFunctionHandle functionHandle)
+    {
+        return (functionHandle instanceof RaptorPartitionFunctionHandle) &&
+                ((RaptorPartitionFunctionHandle) functionHandle).getConnectorId().equals(connectorId);
+    }
+
+    @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return RaptorTableHandle.class;
@@ -112,5 +128,17 @@ public class RaptorHandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return RaptorInsertTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorDistributionHandle> getDistributionHandleHandleClass()
+    {
+        return RaptorDistributionHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorPartitionFunctionHandle> getConnectorPartitionFunctionHandle()
+    {
+        return RaptorPartitionFunctionHandle.class;
     }
 }
