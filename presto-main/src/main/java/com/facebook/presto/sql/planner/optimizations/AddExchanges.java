@@ -757,8 +757,7 @@ public class AddExchanges
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(leftSymbols)));
                 right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(rightSymbols)));
 
-                // todo the right/full join code currently only works if the left is not source distributed
-                if (!left.getProperties().isDistributedOn(leftSymbols) || ((node.getType() == RIGHT || node.getType() == FULL) && !left.getProperties().isHashPartitionedOn(leftSymbols))) {
+                if (!left.getProperties().isDistributedOn(leftSymbols) || (left.getProperties().isEffectivelySinglePartition() && left.getProperties().isRepartitionEffective(leftSymbols))) {
                     left = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), left.getNode(), new PartitionFunctionBinding(HASH, leftSymbols, node.getLeftHashSymbol())),
                             left.getProperties());

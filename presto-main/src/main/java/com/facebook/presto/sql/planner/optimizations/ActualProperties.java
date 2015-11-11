@@ -567,7 +567,7 @@ class ActualProperties
 
         public boolean isDistributedOn(Iterable<Symbol> columns)
         {
-            return ImmutableSet.copyOf(columns).equals(ImmutableSet.copyOf(partitionFunction.getPartitioningColumns()));
+            return ImmutableSet.copyOf(columns).containsAll(partitionFunction.getPartitioningColumns());
         }
 
         public boolean isDistributedOn(DistributionHandle distributionHandle, PartitionFunctionBinding partitionFunction)
