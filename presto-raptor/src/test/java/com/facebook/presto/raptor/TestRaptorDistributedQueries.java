@@ -105,6 +105,10 @@ public class TestRaptorDistributedQueries
 
         assertQuery("SELECT count(*) FROM orders_bucketed a JOIN orders_bucketed b USING (orderkey)", "SELECT count(*) * 4 FROM orders");
 
+        assertQuery("DELETE FROM orders_bucketed WHERE orderkey = 37", "SELECT 2");
+        assertQuery("SELECT count(*) FROM orders_bucketed", "SELECT (count(*) * 2) - 2 FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed", "SELECT 50 * 2");
+
         assertUpdate("DROP TABLE orders_bucketed");
     }
 }
