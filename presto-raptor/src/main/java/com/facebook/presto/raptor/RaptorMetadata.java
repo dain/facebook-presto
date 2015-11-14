@@ -100,6 +100,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
@@ -438,6 +439,9 @@ public class RaptorMetadata
         long distributionId;
         String distributionName = getDistributionName(properties);
         if (distributionName != null) {
+            if (!distributionName.matches("[a-z_]+")) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "Distribution name may only contain letters or underscores");
+            }
             if (bucketColumnHandles.isEmpty()) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, DISTRIBUTION_NAME_PROPERTY));
             }
@@ -459,8 +463,13 @@ public class RaptorMetadata
             }
         }
         else if (bucketCount.isPresent()) {
-            String types = Distribution.serializeColumnTypes(bucketColumnTypes.build());
-            distributionId = dao.insertDistribution(null, types, bucketCount.getAsInt());
+            // TODO: make anonymous distributions work
+            int buckets = bucketCount.getAsInt();
+            String typeNames = bucketColumnTypes.build().stream()
+                    .map(i -> i.getTypeSignature().toString())
+                    .collect(joining(":"));
+            String name = format("$buckets:%s:%s", buckets, typeNames);
+            distributionId = getOrCreateDistribution(name, bucketColumnTypes.build(), buckets).getId();
         }
         else {
             return Optional.empty();
