@@ -27,11 +27,15 @@ import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
+import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RenameColumnTask;
 import com.facebook.presto.execution.RenameTableTask;
 import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.SetSessionTask;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
+import com.facebook.presto.execution.scheduler.NodeScheduler;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -85,6 +89,7 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.DistributionManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -108,6 +113,7 @@ import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.type.TypeUtils;
+import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -141,6 +147,7 @@ public class LocalQueryRunner
 {
     private final Session defaultSession;
     private final ExecutorService executor;
+    private final FinalizerService finalizerService;
 
     private final SqlParser sqlParser;
     private final InMemoryNodeManager nodeManager;
@@ -151,6 +158,7 @@ public class LocalQueryRunner
     private final BlockEncodingSerde blockEncodingSerde;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
+    private final DistributionManager distributionManager;
     private final PageSinkManager pageSinkManager;
 
     private final ExpressionCompiler compiler;
@@ -165,11 +173,19 @@ public class LocalQueryRunner
     {
         requireNonNull(defaultSession, "defaultSession is null");
         this.executor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-%s"));
+        this.finalizerService = new FinalizerService();
+        finalizerService.start();
 
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         this.typeRegistry = new TypeRegistry();
         this.indexManager = new IndexManager();
+        NodeScheduler nodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                nodeManager,
+                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeTaskMap(finalizerService));
+        this.distributionManager = new DistributionManager(nodeScheduler);
         this.pageSinkManager = new PageSinkManager();
 
         this.splitManager = new SplitManager();
@@ -238,6 +254,7 @@ public class LocalQueryRunner
     {
         executor.shutdownNow();
         connectorManager.stop();
+        finalizerService.destroy();
     }
 
     @Override
@@ -463,6 +480,7 @@ public class LocalQueryRunner
                 sqlParser,
                 pageSourceManager,
                 indexManager,
+                distributionManager,
                 pageSinkManager,
                 null,
                 compiler,

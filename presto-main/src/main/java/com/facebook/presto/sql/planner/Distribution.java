@@ -23,14 +23,31 @@ import static java.util.Objects.requireNonNull;
 public class Distribution
 {
     private final Map<Integer, Node> partitionToNode;
+    private final int[] bucketToPartition;
 
     public Distribution(Map<Integer, Node> partitionToNode)
     {
+        this.partitionToNode = ImmutableMap.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
+
+        bucketToPartition = new int[partitionToNode.size()];
+        for (int i = 0; i < bucketToPartition.length; i++) {
+            bucketToPartition[i] = i;
+        }
+    }
+
+    public Distribution(Map<Integer, Node> partitionToNode, int[] bucketToPartition)
+    {
+        this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.partitionToNode = ImmutableMap.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
     }
 
     public Map<Integer, Node> getPartitionToNode()
     {
         return partitionToNode;
+    }
+
+    public int[] getBucketToPartition()
+    {
+        return bucketToPartition;
     }
 }
