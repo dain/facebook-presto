@@ -165,7 +165,7 @@ public class DistributionManager
         ToIntFunction<ConnectorSplit> splitBucketFunction = distributionProvider.getSplitBucketFunction(session.toConnectorSession(), distributionHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No distribution %s", distributionHandle);
 
-        return new Distribution(nodeToPartition.inverse(), bucketToPartition);
+        return new Distribution(nodeToPartition.inverse(), bucketToPartition, split -> splitBucketFunction.applyAsInt(split.getConnectorSplit()));
     }
 
     private Distribution getSystemDistribution(Session session, DistributionHandle distributionHandle)
@@ -194,7 +194,9 @@ public class DistributionManager
             Node node = nodes.get(i);
             distribution.put(i, node);
         }
-        return new Distribution(distribution.build());
+        return new Distribution(distribution.build(), split -> {
+            throw new IllegalArgumentException("System distribution does not support source splits");
+        });
     }
 
     private static class SingleBucketFunction

@@ -26,7 +26,6 @@ import com.facebook.presto.execution.SqlStageExecution.ExchangeLocation;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.StageState;
-import com.facebook.presto.spi.ConnectorDistributionHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.Distribution;
@@ -192,16 +191,31 @@ public class SqlQueryScheduler
 
         Optional<int[]> bucketToPartition = Optional.empty();
         DistributionHandle distributionHandle = plan.getFragment().getDistribution();
-        ConnectorDistributionHandle connectorDistributionHandle = distributionHandle.getConnectorHandle();
-        if (connectorDistributionHandle instanceof SystemDistributionHandle && ((SystemDistributionHandle) connectorDistributionHandle).getPlanDistribution() != SOURCE) {
-            Distribution distribution = distributionManager.getDistribution(session, distributionHandle);
-            stageSchedulers.put(stageId, new FixedCountScheduler(stage, distribution.getPartitionToNode()));
-            bucketToPartition = Optional.of(distribution.getBucketToPartition());
+        if (distributionHandle.getConnectorHandle() instanceof SystemDistributionHandle) {
+            SystemDistributionHandle systemDistributionHandle = (SystemDistributionHandle) distributionHandle.getConnectorHandle();
+
+            if (systemDistributionHandle.getPlanDistribution() != SOURCE) {
+                Distribution distribution = distributionManager.getDistribution(session, distributionHandle);
+                stageSchedulers.put(stageId, new FixedCountScheduler(stage, distribution.getPartitionToNode()));
+                bucketToPartition = Optional.of(distribution.getBucketToPartition());
+            }
+            else {
+                SplitSource splitSource = plan.getDataSource().get();
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(splitSource.getDataSourceName());
+                stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, splitSource, new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks), splitBatchSize));
+            }
         }
         else {
-            SplitSource splitSource = plan.getDataSource().get();
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(splitSource.getDataSourceName());
-            stageSchedulers.put(stageId, new SourcePartitionedScheduler(stage, splitSource, new SplitPlacementPolicy(nodeSelector, stage::getAllTasks), splitBatchSize));
+            Distribution distribution = distributionManager.getDistribution(session, distributionHandle);
+            Optional<SplitSource> splitSource = plan.getDataSource();
+            if (splitSource.isPresent()) {
+                stageSchedulers.put(stageId, new FixedSourcePartitionedScheduler(stage, splitSource.get(), distribution, splitBatchSize, nodeTaskMap, 100));
+                bucketToPartition = Optional.of(distribution.getBucketToPartition());
+            }
+            else {
+                stageSchedulers.put(stageId, new FixedCountScheduler(stage, distribution.getPartitionToNode()));
+                bucketToPartition = Optional.of(distribution.getBucketToPartition());
+            }
         }
 
         ImmutableSet.Builder<SqlStageExecution> childStages = ImmutableSet.builder();
