@@ -107,6 +107,18 @@ public class ExchangeNode
                 ImmutableList.of(child.getOutputSymbols()));
     }
 
+    public static ExchangeNode partitionedExchange(PlanNodeId id, PlanNode child, PartitionFunctionBinding partitionFunction, DistributionHandle distribution)
+    {
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPARTITION,
+                Optional.of(distribution),
+                Optional.of(partitionFunction),
+                ImmutableList.of(child),
+                child.getOutputSymbols(),
+                ImmutableList.of(child.getOutputSymbols()));
+    }
+
     public static ExchangeNode replicatedExchange(PlanNodeId id, PlanNode child)
     {
         return new ExchangeNode(

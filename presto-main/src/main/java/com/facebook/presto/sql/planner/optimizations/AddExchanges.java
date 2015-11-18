@@ -29,6 +29,7 @@ import com.facebook.presto.spi.predicate.NullableValue;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DistributionHandle;
 import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.LookupSymbolResolver;
@@ -111,6 +112,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.replicatedExchan
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
+import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -739,16 +741,27 @@ public class AddExchanges
                 left = node.getLeft().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(leftSymbols)));
                 right = node.getRight().accept(this, context.withPreferredProperties(PreferredProperties.hashPartitioned(rightSymbols)));
 
-                // force partitioning
-                if (!left.getProperties().isHashPartitionedOn(leftSymbols)) {
+                // todo the right/full join code currently only works if the left is not source distributed
+                if (!left.getProperties().isDistributedOn(leftSymbols) || ((node.getType() == RIGHT || node.getType() == FULL) && !left.getProperties().isHashPartitionedOn(leftSymbols))) {
                     left = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), left.getNode(), new PartitionFunctionBinding(HASH, leftSymbols, node.getLeftHashSymbol())),
                             left.getProperties());
                 }
 
-                if (!right.getProperties().isHashPartitionedOn(rightSymbols)) {
+                DistributionHandle distributionHandle = left.getProperties().getDistributionHandle().get();
+
+                // translate left symbols to right symbols
+                PartitionFunctionBinding partitionFunction = left.getProperties().getPartitionFunction().get();
+                partitionFunction = new PartitionFunctionBinding(
+                        partitionFunction.getFunctionHandle(),
+                        partitionFunction.getPartitioningColumns().stream()
+                                .mapToInt(leftSymbols::indexOf)
+                                .mapToObj(rightSymbols::get)
+                                .collect(toImmutableList()));
+
+                if (!right.getProperties().isDistributedOn(distributionHandle, partitionFunction)) {
                     right = withDerivedProperties(
-                            partitionedExchange(idAllocator.getNextId(), right.getNode(), new PartitionFunctionBinding(HASH, rightSymbols, node.getRightHashSymbol())),
+                            partitionedExchange(idAllocator.getNextId(), right.getNode(), partitionFunction, distributionHandle),
                             right.getProperties());
                 }
             }
@@ -765,10 +778,12 @@ public class AddExchanges
                             gatheringExchange(idAllocator.getNextId(), right.getNode()),
                             right.getProperties());
                 }
-                else if (left.getProperties().isDistributed() && !(left.getProperties().isHashPartitionedOn(leftSymbols) && right.getProperties().isHashPartitionedOn(rightSymbols))) {
-                    right = withDerivedProperties(
-                            replicatedExchange(idAllocator.getNextId(), right.getNode()),
-                            right.getProperties());
+                else if (left.getProperties().isDistributed()) {
+                    if (!left.getProperties().isHashPartitionedOn(leftSymbols) || !right.getProperties().isHashPartitionedOn(rightSymbols)) {
+                        right = withDerivedProperties(
+                                replicatedExchange(idAllocator.getNextId(), right.getNode()),
+                                right.getProperties());
+                    }
                 }
             }
 
@@ -988,7 +1003,7 @@ public class AddExchanges
                             partitionedExchange(
                                     idAllocator.getNextId(),
                                     source.getNode(),
-                                    new PartitionFunctionBinding(HASH, sourceHashColumns, Optional.empty())),
+                                    new PartitionFunctionBinding(HASH, sourceHashColumns)),
                             source.getProperties());
                 }
                 partitionedSources.add(source.getNode());

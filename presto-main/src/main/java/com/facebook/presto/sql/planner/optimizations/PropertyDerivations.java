@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.DomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.planner.NoOpSymbolResolver;
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
@@ -74,10 +75,10 @@ import java.util.Set;
 import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.coordinatorOnly;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.distributed;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.undistributed;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Partitioning.hashPartitioned;
-import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Partitioning.partitioned;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.NodeDistribution.distributedOn;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.NodePartitioning.partitionedOn;
+import static com.facebook.presto.sql.planner.optimizations.ActualProperties.distributed;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableSet;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -371,7 +372,9 @@ class PropertyDerivations
                                 .build();
                     }
                     return ActualProperties.builder()
-                            .global(distributed(hashPartitioned(node.getPartitionKeys().get())))
+                            .global(distributed(
+                                    distributedOn(node.getDistribution().get(), node.getPartitionFunction().get()),
+                                    Optional.of(partitionedOn(node.getPartitionKeys().get()))))
                             .constants(constants)
                             .build();
                 case REPLICATE:
@@ -455,7 +458,7 @@ class PropertyDerivations
                         .global(coordinatorOnly())
                         .build();
             }
-            return properties.isDistributed() ? ActualProperties.distributed() : ActualProperties.undistributed();
+            return properties.isDistributed() ? distributed() : ActualProperties.undistributed();
         }
 
         @Override
@@ -510,7 +513,7 @@ class PropertyDerivations
             }
 
             if (partitioningColumns.isPresent()) {
-                properties.global(distributed(partitioned(ImmutableSet.copyOf(partitioningColumns.get()))));
+                properties.global(Global.partitioned(ImmutableSet.copyOf(partitioningColumns.get())));
             }
             else {
                 properties.global(distributed());
