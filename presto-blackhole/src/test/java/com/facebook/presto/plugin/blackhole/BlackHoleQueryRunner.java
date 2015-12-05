@@ -30,12 +30,18 @@ public final class BlackHoleQueryRunner
     public static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
+        return createQueryRunner(ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(ImmutableMap<String, String> extraProperties)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setCatalog("blackhole")
                 .setSchema("default")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties);
 
         try {
             queryRunner.installPlugin(new BlackHolePlugin());
@@ -55,7 +61,7 @@ public final class BlackHoleQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner();
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         System.out.println("======== SERVER STARTED ========");
         System.out.println();
         System.out.println(queryRunner.getCoordinator().getBaseUrl());

@@ -315,6 +315,11 @@ public class DistributedQueryRunner
 
     private void cancelAllQueries()
     {
+        // this can happen when an exception is thrown in the constructor
+        if (coordinator == null) {
+            return;
+        }
+
         QueryManager queryManager = coordinator.getQueryManager();
         for (QueryInfo queryInfo : queryManager.getAllQueryInfo()) {
             if (!queryInfo.getState().isDone()) {

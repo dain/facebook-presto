@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -32,13 +33,19 @@ public final class TpchQueryRunner
     public static DistributedQueryRunner createQueryRunner()
             throws Exception
     {
+        return createQueryRunner(ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(ImmutableMap<String, String> extraProperties)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setSource("test")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 4, extraProperties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
@@ -58,7 +65,7 @@ public final class TpchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner();
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         log.info("======== SERVER STARTED ========");
         log.info("");
         log.info("" + queryRunner.getCoordinator().getBaseUrl());
