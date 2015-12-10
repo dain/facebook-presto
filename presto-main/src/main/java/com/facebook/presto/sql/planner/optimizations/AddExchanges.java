@@ -269,7 +269,7 @@ public class AddExchanges
                 }
             }
             else {
-                if (child.getProperties().isPartitionedOn(node.getGroupBy())) {
+                if (child.getProperties().isDistributedOn(node.getGroupBy())) {
                     return rebaseAndDeriveProperties(node, child);
                 }
                 else {
