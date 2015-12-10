@@ -310,7 +310,7 @@ public class RaptorMetadata
                 layout,
                 Optional.empty(),
                 TupleDomain.all(),
-                Optional.empty(),
+                Optional.of(ImmutableSet.copyOf(getBucketColumnHandles(handle.getTableId()))),
                 Optional.of(ImmutableList.copyOf(getBucketColumnHandles(handle.getTableId()))),
                 Optional.empty(),
                 Optional.of(new RaptorDistributionHandle(connectorId, handle.getDistributionId().getAsLong())),
