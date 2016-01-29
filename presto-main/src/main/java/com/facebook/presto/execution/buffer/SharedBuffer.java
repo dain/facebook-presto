@@ -103,6 +103,13 @@ public class SharedBuffer
         this.memoryManager = new SharedBufferMemoryManager(maxBufferSize.toBytes(), systemMemoryUsageListener);
     }
 
+    public SharedBuffer(String taskInstanceId, StateMachine<BufferState> state, SharedBufferMemoryManager memoryManager)
+    {
+        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.state = requireNonNull(state, "state is null");
+        this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+    }
+
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
