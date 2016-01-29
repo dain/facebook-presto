@@ -100,6 +100,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.SystemSessionProperties.parallelOutput;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
@@ -237,11 +238,21 @@ public class AddExchanges
             PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.any()));
 
             if (!child.getProperties().isSingleNode()) {
-                child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), child.getNode()),
-                        child.getProperties());
+                if (parallelOutput(session)) {
+                    child = withDerivedProperties(
+                            partitionedExchange(
+                                    idAllocator.getNextId(),
+                                    child.getNode(),
+                                    new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, child.getNode().getOutputSymbols(), ImmutableList.of())),
+                            child.getProperties());
+                }
+                else {
+                    // force to single
+                    child = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), child.getNode()),
+                            child.getProperties());
+                }
             }
-
             return rebaseAndDeriveProperties(node, child);
         }
 

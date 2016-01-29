@@ -58,6 +58,7 @@ public final class SystemSessionProperties
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
     public static final String SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL = "split_concurrency_adjustment_interval";
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
+    public static final String PARALLEL_OUTPUT = "parallel_output";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -210,6 +211,11 @@ public final class SystemSessionProperties
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
+                        false),
+                booleanSessionProperty(
+                        PARALLEL_OUTPUT,
+                        "Create multiple tasks in the output stage",
+                        true,
                         false));
     }
 
@@ -341,5 +347,10 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static boolean parallelOutput(Session session)
+    {
+        return session.getProperty(PARALLEL_OUTPUT, Boolean.class);
     }
 }

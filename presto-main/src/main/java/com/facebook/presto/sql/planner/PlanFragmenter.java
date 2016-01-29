@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -51,10 +52,23 @@ public class PlanFragmenter
 {
     public SubPlan createSubPlans(Plan plan)
     {
+        return createSubPlans(plan, false);
+    }
+
+    public SubPlan createSubPlans(Plan plan, boolean forceSingleNodeOutput)
+    {
         Fragmenter fragmenter = new Fragmenter(plan.getSymbolAllocator().getTypes());
 
-        FragmentProperties properties = new FragmentProperties(new PartitionFunctionBinding(SINGLE_DISTRIBUTION, plan.getRoot().getOutputSymbols(), ImmutableList.of()))
-                .setSingleNodeDistribution();
+        FragmentProperties properties;
+        if (forceSingleNodeOutput) {
+            properties = new FragmentProperties(new PartitionFunctionBinding(SINGLE_DISTRIBUTION, plan.getRoot().getOutputSymbols(), ImmutableList.of()))
+                    .setSingleNodeDistribution();
+        }
+        else {
+            // the partitioning handle doesn't mean anything on the root plan fragment, but we set it here
+            // so that the explain plan shows the proper type
+            properties = new FragmentProperties(new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, plan.getRoot().getOutputSymbols(), ImmutableList.of()));
+        }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan result = fragmenter.buildRootFragment(root, properties);
@@ -104,8 +118,6 @@ public class PlanFragmenter
         @Override
         public PlanNode visitOutput(OutputNode node, RewriteContext<FragmentProperties> context)
         {
-            context.get().setSingleNodeDistribution(); // TODO: add support for distributed output
-
             return context.defaultRewrite(node, context.get());
         }
 
