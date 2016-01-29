@@ -106,8 +106,8 @@ import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripDeterministicConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.stripNonDeterministicConjuncts;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.singleStreamPartition;
@@ -243,7 +243,7 @@ public class AddExchanges
                             partitionedExchange(
                                     idAllocator.getNextId(),
                                     child.getNode(),
-                                    new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, child.getNode().getOutputSymbols(), ImmutableList.of())),
+                                    new PartitionFunctionBinding(FIXED_ARBITRARY_DISTRIBUTION, child.getNode().getOutputSymbols(), ImmutableList.of())),
                             child.getProperties());
                 }
                 else {
@@ -637,7 +637,7 @@ public class AddExchanges
 
             Optional<PartitionFunctionBinding> partitionFunction = node.getPartitionFunction();
             if (!partitionFunction.isPresent() && redistributeWrites) {
-                partitionFunction = Optional.of(new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of()));
+                partitionFunction = Optional.of(new PartitionFunctionBinding(FIXED_ARBITRARY_DISTRIBUTION, source.getNode().getOutputSymbols(), ImmutableList.of()));
             }
 
             if (partitionFunction.isPresent()) {

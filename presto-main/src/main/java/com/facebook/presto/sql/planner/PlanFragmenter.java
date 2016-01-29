@@ -37,7 +37,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_RANDOM_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
@@ -67,7 +67,7 @@ public class PlanFragmenter
         else {
             // the partitioning handle doesn't mean anything on the root plan fragment, but we set it here
             // so that the explain plan shows the proper type
-            properties = new FragmentProperties(new PartitionFunctionBinding(FIXED_RANDOM_DISTRIBUTION, plan.getRoot().getOutputSymbols(), ImmutableList.of()));
+            properties = new FragmentProperties(new PartitionFunctionBinding(FIXED_ARBITRARY_DISTRIBUTION, plan.getRoot().getOutputSymbols(), ImmutableList.of()));
         }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 

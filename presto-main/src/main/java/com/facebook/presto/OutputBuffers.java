@@ -39,7 +39,8 @@ public final class OutputBuffers
 
     public enum BufferType
     {
-        SHARED
+        SHARED,
+        ARBITRARY
     }
 
     private final BufferType type;
@@ -88,7 +89,9 @@ public final class OutputBuffers
     public void checkValidTransition(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
-        checkState(type == newOutputBuffers.getType(), "newOutputBuffers has a different type");
+        if (type != newOutputBuffers.getType()) {
+            checkState(type == newOutputBuffers.getType(), "newOutputBuffers has a different type");
+        }
 
         if (version > newOutputBuffers.version) {
             throw new IllegalArgumentException("newOutputBuffers version is older");
@@ -136,6 +139,7 @@ public final class OutputBuffers
     public String toString()
     {
         return toStringHelper(this)
+                .add("type", type)
                 .add("version", version)
                 .add("noMoreBufferIds", noMoreBufferIds)
                 .add("bufferIds", buffers)

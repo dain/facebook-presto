@@ -128,6 +128,9 @@ public class LazyBuffer
                     case SHARED:
                         delegate = new SharedBuffer(taskInstanceId, state, memoryManager);
                         break;
+                    case ARBITRARY:
+                        delegate = new ArbitraryBuffer(taskInstanceId, state, memoryManager);
+                        break;
                 }
 
                 // process pending aborts and reads outside of synchronized lock

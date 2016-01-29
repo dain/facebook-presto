@@ -428,7 +428,7 @@ public class SqlQueryScheduler
                             return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
                         }
                         else {
-                            return new PartitionedOutputBufferManager(childStage::setOutputBuffers);
+                            return new PartitionedOutputBufferManager(partitionFunction.getPartitioningHandle(), childStage::setOutputBuffers);
                         }
                     })
                     .collect(toImmutableSet());

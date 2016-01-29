@@ -15,6 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.OutputBuffers;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -24,22 +25,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
 import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PartitionedOutputBufferManager
         implements OutputBufferManager
 {
+    private final PartitioningHandle partitioningHandle;
     private final Consumer<OutputBuffers> outputBufferTarget;
     @GuardedBy("this")
     private final Map<TaskId, Integer> partitions = new LinkedHashMap<>();
     @GuardedBy("this")
     private boolean noMoreBufferIds;
 
-    public PartitionedOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
+    public PartitionedOutputBufferManager(PartitioningHandle partitioningHandle, Consumer<OutputBuffers> outputBufferTarget)
     {
+        this.partitioningHandle = requireNonNull(partitioningHandle, "functionHandle is null");
         this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
     }
 
@@ -64,7 +69,7 @@ public class PartitionedOutputBufferManager
             noMoreBufferIds = true;
         }
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(SHARED)
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION) ? ARBITRARY : SHARED)
                 .withBuffers(partitions)
                 .withNoMoreBufferIds();
 
