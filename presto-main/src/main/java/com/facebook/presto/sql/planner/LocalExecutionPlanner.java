@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.execution.buffer.SharedBuffer;
+import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Signature;
@@ -269,7 +269,7 @@ public class LocalExecutionPlanner
             PlanNode plan,
             Map<Symbol, Type> types,
             PartitionFunctionBinding functionBinding,
-            SharedBuffer sharedBuffer,
+            OutputBuffer outputBuffer,
             boolean singleNode,
             boolean allowLocalParallel)
     {
@@ -277,7 +277,7 @@ public class LocalExecutionPlanner
         if (functionBinding.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
                 functionBinding.getPartitioningHandle().equals(SINGLE_DISTRIBUTION) ||
                 functionBinding.getPartitioningHandle().equals(COORDINATOR_DISTRIBUTION)) {
-            return plan(session, plan, outputLayout, types, new TaskOutputFactory(sharedBuffer), singleNode, allowLocalParallel);
+            return plan(session, plan, outputLayout, types, new TaskOutputFactory(outputBuffer), singleNode, allowLocalParallel);
         }
 
         // We can convert the symbols directly into channels, because the root must be a sink and therefore the layout is fixed
@@ -325,7 +325,7 @@ public class LocalExecutionPlanner
                 plan,
                 outputLayout,
                 types,
-                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, sharedBuffer),
+                new PartitionedOutputFactory(partitionFunction, partitionChannels, partitionConstants, nullChannel, outputBuffer),
                 singleNode,
                 allowLocalParallel);
     }
