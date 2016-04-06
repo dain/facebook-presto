@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.execution.BufferInfo;
 import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.buffer.BufferInfo;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

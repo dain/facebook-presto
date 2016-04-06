@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.execution.buffer.SharedBufferInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
