@@ -779,6 +779,13 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT 2.0, 14.0");
     }
 
+    @Test(enabled = false)
+    public void testTableSampleSystem()
+            throws Exception
+    {
+        // Hive can end up with one split when writing
+    }
+
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
         MaterializedResult results = queryRunner.execute(getSession(), query).toJdbcTypes();
