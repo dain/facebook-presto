@@ -15,12 +15,13 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.metastore.InMemoryHiveMetastore;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.tpch.testing.SampledTpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
@@ -45,18 +46,36 @@ public final class HiveQueryRunner
     private static final String TPCH_SAMPLED_SCHEMA = "tpch_sampled";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("Asia/Kathmandu");
 
-    public static QueryRunner createQueryRunner(TpchTable<?>... tables)
+    public static DistributedQueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createQueryRunner(ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+            throws Exception
+    {
+        return createQueryRunner(extraProperties, TpchTable.getTables());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
     {
         return createQueryRunner(ImmutableList.copyOf(tables));
     }
 
-    public static QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createQueryRunner(ImmutableMap.of(), tables);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=Asia/Katmandu to your JVM arguments");
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(), 4, extraProperties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
@@ -117,5 +136,16 @@ public final class HiveQueryRunner
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(schema)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        Thread.sleep(10);
+        Logger log = Logger.get(DistributedQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
