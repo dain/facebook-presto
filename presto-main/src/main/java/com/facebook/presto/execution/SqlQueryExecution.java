@@ -60,11 +60,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.OutputBuffers.BROADCAST_PARTITION_ID;
-import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
-import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -310,7 +307,7 @@ public final class SqlQueryExecution
         stateMachine.setOutputFieldNames(outputStageExecutionPlan.getFieldNames());
 
         PartitioningHandle partitioningHandle = plan.getRoot().getFragment().getPartitionFunction().getPartitioningHandle();
-        OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION) ? ARBITRARY : SHARED)
+        OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
                 .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
                 .withNoMoreBufferIds();
 

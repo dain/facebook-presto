@@ -50,10 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
-import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -121,7 +118,7 @@ public final class SqlStageExecution
         this.exchangeSources = fragmentToExchangeSource.build();
 
         PartitioningHandle partitioningHandle = stateMachine.getFragment().getPartitionFunction().getPartitioningHandle();
-        outputBuffers = new AtomicReference<>(createInitialEmptyOutputBuffers(partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION) ? ARBITRARY : SHARED));
+        outputBuffers = new AtomicReference<>(createInitialEmptyOutputBuffers(partitioningHandle));
     }
 
     public StageId getStageId()

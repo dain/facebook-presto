@@ -14,6 +14,7 @@
 package com.facebook.presto;
 
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -23,6 +24,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
+import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
+import static com.facebook.presto.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -37,8 +43,22 @@ public final class OutputBuffers
         return new OutputBuffers(type, 0, false, ImmutableMap.<TaskId, Integer>of());
     }
 
+    public static OutputBuffers createInitialEmptyOutputBuffers(PartitioningHandle partitioningHandle)
+    {
+        BufferType type;
+        if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
+            type = ARBITRARY;
+        } else if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+            type = SHARED;
+        } else {
+            type = PARTITIONED;
+        }
+        return new OutputBuffers(type, 0, false, ImmutableMap.<TaskId, Integer>of());
+    }
+
     public enum BufferType
     {
+        PARTITIONED,
         SHARED,
         ARBITRARY
     }

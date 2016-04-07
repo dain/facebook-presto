@@ -125,6 +125,9 @@ public class LazyBuffer
         synchronized (this) {
             if (delegate == null) {
                 switch (newOutputBuffers.getType()) {
+                    case PARTITIONED:
+                        delegate = new PartitionedBuffer(taskInstanceId, state, newOutputBuffers, memoryManager);
+                        break;
                     case SHARED:
                         delegate = new SharedBuffer(taskInstanceId, state, memoryManager);
                         break;

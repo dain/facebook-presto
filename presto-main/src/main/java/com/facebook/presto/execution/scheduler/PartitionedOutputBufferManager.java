@@ -25,10 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.OutputBuffers.BufferType.ARBITRARY;
-import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -69,7 +66,7 @@ public class PartitionedOutputBufferManager
             noMoreBufferIds = true;
         }
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION) ? ARBITRARY : SHARED)
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
                 .withBuffers(partitions)
                 .withNoMoreBufferIds();
 
