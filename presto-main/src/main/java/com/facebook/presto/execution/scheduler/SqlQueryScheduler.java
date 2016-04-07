@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.planner.NodePartitionMap;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.PartitionFunctionBinding;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.StageExecutionPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -422,7 +423,8 @@ public class SqlQueryScheduler
             this.parent = parent;
             this.childOutputBufferManagers = children.stream()
                     .map(childStage -> {
-                        if (childStage.getFragment().getPartitionFunction().getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                        PartitionFunctionBinding partitionFunction = childStage.getFragment().getPartitionFunction();
+                        if (partitionFunction.getPartitioningHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
                             return new BroadcastOutputBufferManager(childStage::setOutputBuffers);
                         }
                         else {

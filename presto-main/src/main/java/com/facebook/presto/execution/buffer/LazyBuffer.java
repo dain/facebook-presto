@@ -103,6 +103,7 @@ public class LazyBuffer
             BufferState state = this.state.get();
 
             return new SharedBufferInfo(
+                    "UNINITIALIZED",
                     state,
                     state.canAddBuffers(),
                     state.canAddPages(),
@@ -123,7 +124,11 @@ public class LazyBuffer
         OutputBuffer outputBuffer;
         synchronized (this) {
             if (delegate == null) {
-                delegate = new SharedBuffer(taskInstanceId, state, memoryManager);
+                switch (newOutputBuffers.getType()) {
+                    case SHARED:
+                        delegate = new SharedBuffer(taskInstanceId, state, memoryManager);
+                        break;
+                }
 
                 // process pending aborts and reads outside of synchronized lock
                 abortedBuffers = ImmutableSet.copyOf(this.abortedBuffers);

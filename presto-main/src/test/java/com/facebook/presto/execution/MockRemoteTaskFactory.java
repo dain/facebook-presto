@@ -62,6 +62,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -109,7 +110,7 @@ public class MockRemoteTaskFactory
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, 0, testFragment, initialSplits.build(), createInitialEmptyOutputBuffers(), partitionedSplitCountTracker, true);
+        return createRemoteTask(TEST_SESSION, taskId, newNode, 0, testFragment, initialSplits.build(), createInitialEmptyOutputBuffers(SHARED), partitionedSplitCountTracker, true);
     }
 
     @Override

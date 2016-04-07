@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +64,7 @@ public class PartitionedOutputBufferManager
             noMoreBufferIds = true;
         }
 
-        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers()
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(SHARED)
                 .withBuffers(partitions)
                 .withNoMoreBufferIds();
 

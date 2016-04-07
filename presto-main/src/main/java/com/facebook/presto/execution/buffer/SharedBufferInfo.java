@@ -24,6 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public final class SharedBufferInfo
 {
+    private final String type;
     private final BufferState state;
     private final boolean canAddBuffers;
     private final boolean canAddPages;
@@ -35,6 +36,7 @@ public final class SharedBufferInfo
 
     @JsonCreator
     public SharedBufferInfo(
+            @JsonProperty("type") String type,
             @JsonProperty("state") BufferState state,
             @JsonProperty("canAddBuffers") boolean canAddBuffers,
             @JsonProperty("canAddPages") boolean canAddPages,
@@ -44,6 +46,7 @@ public final class SharedBufferInfo
             @JsonProperty("totalPagesSent") long totalPagesSent,
             @JsonProperty("buffers") List<BufferInfo> buffers)
     {
+        this.type = type;
         this.state = state;
         this.canAddBuffers = canAddBuffers;
         this.canAddPages = canAddPages;
@@ -52,6 +55,12 @@ public final class SharedBufferInfo
         this.totalRowsSent = totalRowsSent;
         this.totalPagesSent = totalPagesSent;
         this.buffers = ImmutableList.copyOf(buffers);
+    }
+
+    @JsonProperty
+    public String getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -112,7 +121,8 @@ public final class SharedBufferInfo
             return false;
         }
         SharedBufferInfo that = (SharedBufferInfo) o;
-        return Objects.equals(canAddBuffers, that.canAddBuffers) &&
+        return Objects.equals(type, that.type) &&
+                Objects.equals(canAddBuffers, that.canAddBuffers) &&
                 Objects.equals(canAddPages, that.canAddPages) &&
                 Objects.equals(totalBufferedBytes, that.totalBufferedBytes) &&
                 Objects.equals(totalBufferedPages, that.totalBufferedPages) &&
@@ -132,6 +142,7 @@ public final class SharedBufferInfo
     public String toString()
     {
         return toStringHelper(this)
+                .add("type", type)
                 .add("state", state)
                 .add("canAddBuffers", canAddBuffers)
                 .add("canAddPages", canAddPages)

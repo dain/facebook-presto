@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.OutputBuffers.BufferType.SHARED;
 import static com.facebook.presto.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -78,7 +79,7 @@ public final class SqlStageExecution
     private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
     private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
-    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>(createInitialEmptyOutputBuffers());
+    private final AtomicReference<OutputBuffers> outputBuffers;
 
     public SqlStageExecution(
             StageId stageId,
@@ -115,6 +116,8 @@ public final class SqlStageExecution
             }
         }
         this.exchangeSources = fragmentToExchangeSource.build();
+
+        outputBuffers = new AtomicReference<>(createInitialEmptyOutputBuffers(SHARED));
     }
 
     public StageId getStageId()

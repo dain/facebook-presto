@@ -32,11 +32,17 @@ public final class OutputBuffers
 {
     public static final int BROADCAST_PARTITION_ID = 0;
 
-    public static OutputBuffers createInitialEmptyOutputBuffers()
+    public static OutputBuffers createInitialEmptyOutputBuffers(BufferType type)
     {
-        return new OutputBuffers(0, false, ImmutableMap.<TaskId, Integer>of());
+        return new OutputBuffers(type, 0, false, ImmutableMap.<TaskId, Integer>of());
     }
 
+    public enum BufferType
+    {
+        SHARED
+    }
+
+    private final BufferType type;
     private final long version;
     private final boolean noMoreBufferIds;
     private final Map<TaskId, Integer> buffers;
@@ -44,13 +50,21 @@ public final class OutputBuffers
     // Visible only for Jackson... Use the "with" methods instead
     @JsonCreator
     public OutputBuffers(
+            @JsonProperty("type") BufferType type,
             @JsonProperty("version") long version,
             @JsonProperty("noMoreBufferIds") boolean noMoreBufferIds,
             @JsonProperty("buffers") Map<TaskId, Integer> buffers)
     {
+        this.type = type;
         this.version = version;
         this.buffers = ImmutableMap.copyOf(requireNonNull(buffers, "buffers is null"));
         this.noMoreBufferIds = noMoreBufferIds;
+    }
+
+    @JsonProperty
+    public BufferType getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -74,6 +88,8 @@ public final class OutputBuffers
     public void checkValidTransition(OutputBuffers newOutputBuffers)
     {
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
+        checkState(type == newOutputBuffers.getType(), "newOutputBuffers has a different type");
+
         if (version > newOutputBuffers.version) {
             throw new IllegalArgumentException("newOutputBuffers version is older");
         }
@@ -139,6 +155,7 @@ public final class OutputBuffers
         checkState(!noMoreBufferIds, "No more buffer ids already set");
 
         return new OutputBuffers(
+                type,
                 version + 1,
                 false,
                 ImmutableMap.<TaskId, Integer>builder()
@@ -176,7 +193,7 @@ public final class OutputBuffers
         // add the existing buffers
         newBuffers.putAll(this.buffers);
 
-        return new OutputBuffers(version + 1, false, newBuffers);
+        return new OutputBuffers(type, version + 1, false, newBuffers);
     }
 
     public OutputBuffers withNoMoreBufferIds()
@@ -185,7 +202,7 @@ public final class OutputBuffers
             return this;
         }
 
-        return new OutputBuffers(version + 1, true, buffers);
+        return new OutputBuffers(type, version + 1, true, buffers);
     }
 
     private void checkHasBuffer(TaskId bufferId, int partition)
