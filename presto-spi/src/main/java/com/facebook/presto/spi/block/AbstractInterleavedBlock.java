@@ -287,9 +287,4 @@ public abstract class AbstractInterleavedBlock
 
         return getBlock(blockIndex).isNull(positionInBlock);
     }
-
-    @Override
-    public void assureLoaded()
-    {
-    }
 }
