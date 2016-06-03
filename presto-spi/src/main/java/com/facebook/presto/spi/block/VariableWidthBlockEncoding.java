@@ -82,16 +82,15 @@ public class VariableWidthBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        // offsets
-        Slice offsets = Slices.allocate((positionCount + 1) * SIZE_OF_INT);
-        sliceInput.readBytes(offsets, SIZE_OF_INT, positionCount * SIZE_OF_INT);
+        int[] offsets = new int[positionCount + 1];
+        sliceInput.readBytes(Slices.wrappedIntArray(offsets), SIZE_OF_INT, positionCount * SIZE_OF_INT);
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount);
 
         int blockSize = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(blockSize);
 
-        return new VariableWidthBlock(positionCount, slice, offsets, Slices.wrappedBooleanArray(valueIsNull));
+        return new VariableWidthBlock(positionCount, slice, offsets, valueIsNull);
     }
 
     @Override
