@@ -100,24 +100,6 @@ public abstract class AbstractInterleavedBlock
     }
 
     @Override
-    public float getFloat(int position, int offset)
-    {
-        int blockIndex = position % columns;
-        int positionInBlock = position / columns;
-
-        return getBlock(blockIndex).getFloat(positionInBlock, offset);
-    }
-
-    @Override
-    public double getDouble(int position, int offset)
-    {
-        int blockIndex = position % columns;
-        int positionInBlock = position / columns;
-
-        return getBlock(blockIndex).getDouble(positionInBlock, offset);
-    }
-
-    @Override
     public Slice getSlice(int position, int offset, int length)
     {
         int blockIndex = position % columns;
