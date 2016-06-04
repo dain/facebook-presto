@@ -16,20 +16,29 @@ package com.facebook.presto.spi.type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.block.BlockBuilderStatus;
+import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import io.airlift.slice.Slice;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
 
 public final class DoubleType
-        extends AbstractFixedWidthType
+        extends AbstractType
+        implements FixedWidthType
 {
     public static final DoubleType DOUBLE = new DoubleType();
 
     private DoubleType()
     {
-        super(parseTypeSignature(StandardTypes.DOUBLE), double.class, SIZE_OF_DOUBLE);
+        super(parseTypeSignature(StandardTypes.DOUBLE), double.class);
+    }
+
+    @Override
+    public final int getFixedSize()
+    {
+        return Double.BYTES;
     }
 
     @Override
@@ -87,6 +96,12 @@ public final class DoubleType
     }
 
     @Override
+    public final Slice getSlice(Block block, int position)
+    {
+        return block.getSlice(position, 0, getFixedSize());
+    }
+
+    @Override
     public double getDouble(Block block, int position)
     {
         return longBitsToDouble(block.getLong(position, 0));
@@ -99,6 +114,27 @@ public final class DoubleType
     }
 
     @Override
+    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        return new LongArrayBlockBuilder(
+                blockBuilderStatus,
+                Math.min(expectedEntries, blockBuilderStatus.getMaxBlockSizeInBytes() / Double.BYTES));
+    }
+
+    @Override
+    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, Double.BYTES);
+    }
+
+    @Override
+    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new LongArrayBlockBuilder(new BlockBuilderStatus(), positionCount);
+    }
+
+    @Override
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
         return other == DOUBLE;

@@ -15,31 +15,17 @@ package com.facebook.presto.spi.type;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 
 import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
 public final class IntervalDayTimeType
-        extends AbstractFixedWidthType
+        extends AbstractLongType
 {
     public static final IntervalDayTimeType INTERVAL_DAY_TIME = new IntervalDayTimeType();
 
     private IntervalDayTimeType()
     {
-        super(parseTypeSignature(StandardTypes.INTERVAL_DAY_TO_SECOND), long.class, SIZE_OF_LONG);
-    }
-
-    @Override
-    public boolean isComparable()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isOrderable()
-    {
-        return true;
+        super(parseTypeSignature(StandardTypes.INTERVAL_DAY_TO_SECOND));
     }
 
     @Override
@@ -52,47 +38,15 @@ public final class IntervalDayTimeType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    public boolean equals(Object other)
     {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return leftValue == rightValue;
+        return other == INTERVAL_DAY_TIME;
     }
 
     @Override
-    public long hash(Block block, int position)
+    public int hashCode()
     {
-        return block.getLong(position, 0);
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
-        }
-    }
-
-    @Override
-    public long getLong(Block block, int position)
-    {
-        return block.getLong(position, 0);
-    }
-
-    @Override
-    public void writeLong(BlockBuilder blockBuilder, long value)
-    {
-        blockBuilder.writeLong(value).closeEntry();
+        return getClass().hashCode();
     }
 }
