@@ -27,10 +27,10 @@ public class ArrayBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize() + BlockBuilderStatus.INSTANCE_SIZE;
 
-    private final BlockBuilderStatus blockBuilderStatus;
+    private BlockBuilderStatus blockBuilderStatus;
     private final BlockBuilder values;
-    private final SliceOutput offsets;
-    private final SliceOutput valueIsNull;
+    private SliceOutput offsets;
+    private SliceOutput valueIsNull;
     private static final int OFFSET_BASE = 0;
     private int currentEntrySize;
 
@@ -187,6 +187,16 @@ public class ArrayBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
         return new ArrayBlock(values.build(), offsets.slice(), OFFSET_BASE, valueIsNull.slice());
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
+    {
+        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        currentEntrySize = 0;
+        valueIsNull = new DynamicSliceOutput(valueIsNull.size());
+        offsets = new DynamicSliceOutput(offsets.size());
+        values.reset(blockBuilderStatus);
     }
 
     @Override

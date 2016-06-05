@@ -27,7 +27,7 @@ public class ByteArrayBlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize();
 
-    private final BlockBuilderStatus blockBuilderStatus;
+    private BlockBuilderStatus blockBuilderStatus;
 
     private int positionCount;
 
@@ -85,6 +85,17 @@ public class ByteArrayBlockBuilder
     public Block build()
     {
         return new ByteArrayBlock(positionCount, valueIsNull, values);
+    }
+
+    @Override
+    public void reset(BlockBuilderStatus blockBuilderStatus)
+    {
+        this.blockBuilderStatus = requireNonNull(blockBuilderStatus, "blockBuilderStatus is null");
+        positionCount = 0;
+        valueIsNull = new boolean[valueIsNull.length];
+        values = new byte[values.length];
+
+        updateDataSize();
     }
 
     private void growCapacity()
