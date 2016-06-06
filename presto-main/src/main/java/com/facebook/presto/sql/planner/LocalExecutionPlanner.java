@@ -1875,6 +1875,7 @@ public class LocalExecutionPlanner
                     groupByChannels,
                     node.getStep(),
                     accumulatorFactories,
+                    Optional.empty(),
                     hashChannel,
                     10_000,
                     maxPartialAggregationMemorySize);

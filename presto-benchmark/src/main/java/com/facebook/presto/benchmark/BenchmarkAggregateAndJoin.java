@@ -140,6 +140,7 @@ public class BenchmarkAggregateAndJoin
                     ImmutableList.of(
                             COUNT.bind(ImmutableList.of(), Optional.empty(), Optional.empty(), 1.0),
                             LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
+                    Optional.empty(),
                     hashChannel,
                     10_0000,
                     new DataSize(1, GIGABYTE));

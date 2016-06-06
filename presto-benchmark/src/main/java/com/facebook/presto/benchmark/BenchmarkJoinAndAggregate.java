@@ -191,6 +191,7 @@ public class BenchmarkJoinAndAggregate
                             ARBITRARY_VARCHAR.bind(ImmutableList.of(orderStatusChannel), Optional.empty(), Optional.empty(), 1.0),
                             COUNT.bind(ImmutableList.of(), Optional.empty(), Optional.empty(), 1.0),
                             LONG_AVERAGE.bind(ImmutableList.of(1), Optional.empty(), Optional.empty(), 1.0)),
+                    Optional.empty(),
                     hashChannel,
                     10_0000,
                     new DataSize(1, GIGABYTE));

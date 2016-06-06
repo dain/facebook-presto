@@ -190,7 +190,13 @@ public class TopNRowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, Ints.toArray(partitionChannels), hashChannel, expectedPositions));
+            this.groupByHash = Optional.of(createGroupByHash(
+                    operatorContext.getSession(),
+                    partitionTypes,
+                    Ints.toArray(partitionChannels),
+                    Optional.empty(),
+                    hashChannel,
+                    expectedPositions));
         }
         this.flushingPartition = Optional.empty();
         this.pageBuilder = new PageBuilder(types);
