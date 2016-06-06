@@ -24,8 +24,10 @@ import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.JumpInstruction;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.operator.JoinOperatorFactory;
 import com.facebook.presto.operator.JoinProbe;
 import com.facebook.presto.operator.JoinProbeFactory;
+import com.facebook.presto.operator.JoinToDistinctOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperator;
 import com.facebook.presto.operator.LookupJoinOperatorFactory;
 import com.facebook.presto.operator.LookupJoinOperators.JoinType;
@@ -68,6 +70,7 @@ import static com.facebook.presto.bytecode.expression.BytecodeExpressions.consta
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantLong;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.newInstance;
 import static com.facebook.presto.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class JoinProbeCompiler
 {
@@ -79,6 +82,17 @@ public class JoinProbeCompiler
                         throws Exception
                 {
                     return internalCompileJoinOperatorFactory(key.getTypes(), key.getProbeChannels(), key.getProbeHashChannel(), key.isFilterFunctionPresent());
+                }
+            });
+
+    private final LoadingCache<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory> joinToDistinctFactories = CacheBuilder.newBuilder().maximumSize(1000).build(
+            new CacheLoader<JoinOperatorCacheKey, HashJoinOperatorFactoryFactory>()
+            {
+                @Override
+                public HashJoinOperatorFactoryFactory load(JoinOperatorCacheKey key)
+                        throws Exception
+                {
+                    return internalCompileJoinToDistinctOperatorFactory(key.getTypes(), key.getProbeChannels(), key.getProbeHashChannel(), key.isFilterFunctionPresent());
                 }
             });
 
@@ -145,6 +159,68 @@ public class JoinProbeCompiler
                 OperatorFactory.class,
                 LookupJoinOperatorFactory.class,
                 LookupJoinOperator.class);
+
+        return new HashJoinOperatorFactoryFactory(joinProbeFactory, operatorFactoryClass);
+    }
+
+    public OperatorFactory compileJoinToDistinctOperatorFactory(int operatorId,
+            PlanNodeId planNodeId,
+            LookupSourceSupplier lookupSourceSupplier,
+            List<? extends Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            Optional<Integer> probeHashChannel,
+            JoinType joinType)
+    {
+        try {
+            HashJoinOperatorFactoryFactory operatorFactoryFactory = joinToDistinctFactories.get(new JoinOperatorCacheKey(probeTypes, probeJoinChannel, probeHashChannel, joinType, false));
+            return operatorFactoryFactory.createHashJoinOperatorFactory(operatorId, planNodeId, lookupSourceSupplier, probeTypes, probeJoinChannel, joinType);
+        }
+        catch (ExecutionException | UncheckedExecutionException | ExecutionError e) {
+            throw Throwables.propagate(e.getCause());
+        }
+    }
+
+    public HashJoinOperatorFactoryFactory internalCompileJoinToDistinctOperatorFactory(List<Type> types, List<Integer> probeJoinChannel, Optional<Integer> probeHashChannel, boolean filterFunctionPresent)
+    {
+        checkArgument(!filterFunctionPresent, "Join to distinct does not support filter function");
+        Class<? extends JoinProbe> joinProbeClass = compileJoinProbe(types, probeJoinChannel, probeHashChannel);
+
+        ClassDefinition classDefinition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("JoinProbeFactory"),
+                type(Object.class),
+                type(JoinProbeFactory.class));
+
+        classDefinition.declareDefaultConstructor(a(PUBLIC));
+
+        Parameter lookupSource = arg("lookupSource", LookupSource.class);
+        Parameter page = arg("page", Page.class);
+        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "createJoinProbe", type(JoinProbe.class), lookupSource, page);
+
+        method.getBody()
+                .newObject(joinProbeClass)
+                .dup()
+                .append(lookupSource)
+                .append(page)
+                .invokeConstructor(joinProbeClass, LookupSource.class, Page.class)
+                .retObject();
+
+        DynamicClassLoader classLoader = new DynamicClassLoader(joinProbeClass.getClassLoader());
+
+        JoinProbeFactory joinProbeFactory;
+        Class<? extends JoinProbeFactory> joinProbeFactoryClass = defineClass(classDefinition, JoinProbeFactory.class, classLoader);
+        try {
+            joinProbeFactory = joinProbeFactoryClass.newInstance();
+        }
+        catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+
+        Class<? extends OperatorFactory> operatorFactoryClass = IsolatedClass.isolateClass(
+                classLoader,
+                OperatorFactory.class,
+                JoinToDistinctOperatorFactory.class,
+                JoinOperatorFactory.class);
 
         return new HashJoinOperatorFactoryFactory(joinProbeFactory, operatorFactoryClass);
     }
