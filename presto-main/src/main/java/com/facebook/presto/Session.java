@@ -528,6 +528,21 @@ public final class Session
         }
 
         /**
+         * Adds a system properties for the session.  The property name and
+         * value must only contain characters from US-ASCII and must not be for '='.
+         */
+        public SessionBuilder addSystemProperties(String name, String value)
+        {
+            requireNonNull(name, "name is null");
+            requireNonNull(value, "value is null");
+            this.systemProperties = ImmutableMap.<String, String>builder()
+                    .putAll(systemProperties)
+                    .put(name, value)
+                    .build();
+            return this;
+        }
+
+        /**
          * Sets the properties for a catalog.  The catalog name, property names, and
          * values must only contain characters from US-ASCII and must not be for '='.
          */
