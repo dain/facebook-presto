@@ -143,7 +143,7 @@ public class TableFunctionOperator
     @Override
     public Page getOutput()
     {
-        if (outputPageSource == null)  {
+        if (outputPageSource == null) {
             return null;
         }
         Page page = outputPageSource.getNextPage();
@@ -159,7 +159,7 @@ public class TableFunctionOperator
     @Override
     public boolean isFinished()
     {
-        if (outputPageSource == null)  {
+        if (outputPageSource == null) {
             return inputPageSource.isFinished();
         }
         return outputPageSource.isFinished();

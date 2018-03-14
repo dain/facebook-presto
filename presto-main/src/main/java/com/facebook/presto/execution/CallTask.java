@@ -28,9 +28,9 @@ import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Call;
-import com.facebook.presto.sql.tree.SqlArgument;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.SqlArgument;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -68,7 +68,12 @@ public class CallTask
     }
 
     @Override
-    public ListenableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(Call call,
+            TransactionManager transactionManager,
+            Metadata metadata,
+            AccessControl accessControl,
+            QueryStateMachine stateMachine,
+            List<Expression> parameters)
     {
         if (!stateMachine.isAutoCommit()) {
             throw new PrestoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");

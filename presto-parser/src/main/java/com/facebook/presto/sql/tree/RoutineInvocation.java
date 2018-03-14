@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class RoutineInvocation
-    extends Node
+        extends Node
 {
     private final QualifiedName name;
     private final List<SqlArgument> arguments;

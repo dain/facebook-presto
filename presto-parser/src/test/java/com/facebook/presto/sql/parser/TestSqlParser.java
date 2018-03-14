@@ -23,7 +23,6 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Call;
-import com.facebook.presto.sql.tree.SqlArgument;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -109,6 +108,7 @@ import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.SqlArgument;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -2133,7 +2133,7 @@ public class TestSqlParser
                         "           FROM (VALUES (1, 'a')) t(x, y)\n" +
                         "        ),\n" +
                         "        COLUMNS => DESCRIPTOR (A BIGINT, B VARCHAR(10))))",
-            query(new Values(ImmutableList.of())) );
+                query(new Values(ImmutableList.of())));
     }
 
     private static void assertCast(String type)

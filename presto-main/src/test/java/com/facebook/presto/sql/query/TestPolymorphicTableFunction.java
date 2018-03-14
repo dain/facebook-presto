@@ -47,6 +47,5 @@ public class TestPolymorphicTableFunction
                         "        ),\n" +
                         "        output => DESCRIPTOR (A VARCHAR, B VARCHAR, C BIGINT, D BIGINT)))",
                 "VALUES ('foo', 'bar')");
-
     }
 }

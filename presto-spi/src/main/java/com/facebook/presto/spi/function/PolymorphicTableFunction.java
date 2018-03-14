@@ -73,7 +73,7 @@ public interface PolymorphicTableFunction
             return type;
         }
     }
-    
+
     class Parameter
     {
         private final String name;

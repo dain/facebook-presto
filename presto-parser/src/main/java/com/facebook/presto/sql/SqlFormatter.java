@@ -18,10 +18,6 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Call;
-import com.facebook.presto.sql.tree.Descriptor;
-import com.facebook.presto.sql.tree.DescriptorColumn;
-import com.facebook.presto.sql.tree.RoutineInvocation;
-import com.facebook.presto.sql.tree.SqlArgument;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateSchema;
@@ -32,6 +28,8 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.Descriptor;
+import com.facebook.presto.sql.tree.DescriptorColumn;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -69,6 +67,7 @@ import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.RoutineInvocation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -85,6 +84,7 @@ import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SingleColumn;
+import com.facebook.presto.sql.tree.SqlArgument;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableArgument;
@@ -237,7 +237,6 @@ public final class SqlFormatter
             return null;
         }
 
-
         @Override
         protected Void visitLateral(Lateral node, Integer indent)
         {
@@ -353,7 +352,9 @@ public final class SqlFormatter
             }
 
             if (node.getGroupBy().isPresent()) {
-                append(indent, "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements())).append('\n');
+                append(
+                        indent,
+                        "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements())).append('\n');
             }
 
             if (node.getHaving().isPresent()) {

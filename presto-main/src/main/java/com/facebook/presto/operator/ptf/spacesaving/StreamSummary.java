@@ -109,7 +109,7 @@ public class StreamSummary<T>
             minCounter.setItem(item);
             incrementCounter(minCounter);
         }
-                                                 
+
         verify(cache.size() <= capacity);
     }
 

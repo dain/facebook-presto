@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class TableArgument
-    extends Node
+        extends Node
 {
     private final Node table;
 
@@ -69,14 +70,13 @@ public class TableArgument
     @Override
     public int hashCode()
     {
-
         return Objects.hash(table);
     }
 
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("table", table)
                 .toString();
     }

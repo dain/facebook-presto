@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.sql.tree;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class Descriptor
         extends Node
@@ -69,14 +70,13 @@ public class Descriptor
     @Override
     public int hashCode()
     {
-
         return Objects.hash(columns);
     }
 
     @Override
     public String toString()
     {
-        return MoreObjects.toStringHelper(this)
+        return toStringHelper(this)
                 .add("columns", columns)
                 .toString();
     }

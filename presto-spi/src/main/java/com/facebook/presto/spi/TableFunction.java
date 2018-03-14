@@ -29,7 +29,7 @@ public class TableFunction
     public TableFunction(byte[] handle, List<Integer> inputColumns, RowType outputType)
     {
         this.handle = requireNonNull(handle, "handle is null");
-        this.inputColumns = unmodifiableList(requireNonNull(inputColumns, "inputColumns is null"));;
+        this.inputColumns = unmodifiableList(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputType = outputType;
     }
 

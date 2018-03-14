@@ -605,7 +605,6 @@ public class Analysis
         return joinUsing.get(NodeRef.of(node));
     }
 
-
     public void recordTableFunction(RoutineInvocation call, TableFunctionAnalysis analysis)
     {
         tableFunctions.put(NodeRef.of(call), analysis);
