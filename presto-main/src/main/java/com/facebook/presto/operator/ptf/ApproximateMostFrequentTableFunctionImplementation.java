@@ -158,7 +158,7 @@ public class ApproximateMostFrequentTableFunctionImplementation
         {
             pageBuilder.declarePosition();
 
-            for (int channel = 0; channel < page.getPositionCount(); channel++) {
+            for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Type type = pageBuilder.getType(channel);
                 type.appendTo(page.getBlock(channel), 0, pageBuilder.getBlockBuilder(channel));
             }
