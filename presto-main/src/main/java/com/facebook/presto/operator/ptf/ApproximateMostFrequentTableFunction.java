@@ -62,8 +62,7 @@ public class ApproximateMostFrequentTableFunction
         return ImmutableList.of(
                 new Parameter("number", IntegerType.INTEGER.getTypeSignature()),
                 new Parameter("error", DoubleType.DOUBLE.getTypeSignature()),
-                new Parameter("input", ExtendedType.TABLE),
-                new Parameter("output", ExtendedType.DESCRIPTOR));
+                new Parameter("input", ExtendedType.TABLE));
     }
 
     @Override

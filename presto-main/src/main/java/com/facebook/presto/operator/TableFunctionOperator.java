@@ -153,7 +153,7 @@ public class TableFunctionOperator
     @Override
     public void finish()
     {
-        inputPageSource.close();
+        inputPageSource.finish();
     }
 
     @Override
@@ -182,8 +182,9 @@ public class TableFunctionOperator
     private static class InputPageSource
             implements ConnectorPageSource
     {
+        private enum State { RUNNING, FINISHING, CLOSED }
         private Page pendingPage;
-        private boolean finished;
+        private State state;
 
         public void setPendingPage(Page pendingPage)
         {
@@ -209,10 +210,20 @@ public class TableFunctionOperator
             return 0;
         }
 
+        public void finish()
+        {
+            if (pendingPage == null) {
+                state = State.CLOSED;
+            }
+            else {
+                state = State.FINISHING;
+            }
+        }
+
         @Override
         public boolean isFinished()
         {
-            return finished;
+            return state == State.CLOSED;
         }
 
         @Override
@@ -220,6 +231,9 @@ public class TableFunctionOperator
         {
             Page page = pendingPage;
             pendingPage = null;
+            if (state == State.FINISHING) {
+                state = State.CLOSED;
+            }
             return page;
         }
 
@@ -233,7 +247,7 @@ public class TableFunctionOperator
         public void close()
         {
             pendingPage = null;
-            finished = true;
+            state = State.CLOSED;
         }
     }
 }
