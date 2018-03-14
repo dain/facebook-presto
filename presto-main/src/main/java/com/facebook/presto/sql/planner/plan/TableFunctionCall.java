@@ -27,6 +27,7 @@ public class TableFunctionCall
 {
     private final String name;
     private final byte[] handle;
+    private final boolean singleNode;
     private final List<Symbol> outputs;
     private final List<Symbol> inputFields;
     private final PlanNode input;
@@ -35,6 +36,7 @@ public class TableFunctionCall
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("name") String name,
             @JsonProperty("handle") byte[] handle,
+            @JsonProperty("singleNode") boolean singleNode,
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("inputFields") List<Symbol> inputFields,
             @JsonProperty("input") PlanNode input)
@@ -45,6 +47,7 @@ public class TableFunctionCall
 
         this.name = name;
         this.handle = handle;
+        this.singleNode = singleNode;
         this.outputs = outputs;
         this.inputFields = ImmutableList.copyOf(inputFields);
         this.input = input;
@@ -60,6 +63,12 @@ public class TableFunctionCall
     public byte[] getHandle()
     {
         return handle;
+    }
+
+    @JsonProperty
+    public boolean isSingleNode()
+    {
+        return singleNode;
     }
 
     @JsonProperty
@@ -95,7 +104,7 @@ public class TableFunctionCall
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableFunctionCall(getId(), name, handle, outputs, inputFields, Iterables.getOnlyElement(newChildren));
+        return new TableFunctionCall(getId(), name, handle, singleNode, outputs, inputFields, Iterables.getOnlyElement(newChildren));
     }
 
     @Override

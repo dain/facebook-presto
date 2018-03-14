@@ -411,6 +411,7 @@ public class UnaliasSymbolReferences
                     node.getId(),
                     node.getName(),
                     node.getHandle(),
+                    node.isSingleNode(),
                     node.getOutputSymbols().stream()
                             .map(this::canonicalize)
                             .collect(Collectors.toList()),

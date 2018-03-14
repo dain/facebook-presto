@@ -58,6 +58,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionCall;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
@@ -204,6 +205,20 @@ public class AddExchanges
         protected PlanWithProperties visitPlan(PlanNode node, Context context)
         {
             return rebaseAndDeriveProperties(node, planChild(node, context));
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunctionCall(TableFunctionCall node, Context context)
+        {
+            PlanWithProperties child = planChild(node, context.withPreferredProperties(PreferredProperties.undistributed()));
+
+            if (!child.getProperties().isSingleNode() && isForceSingleNodeOutput(session)) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
+            }
+
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override

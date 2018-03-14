@@ -620,12 +620,15 @@ public class Analysis
         private final RelationType inputType;
         private final Node input;
 
-        private byte[] handle;
+        private final byte[] handle;
+        private final boolean singleNode;
+
         private final RelationType outputType;
 
-        public TableFunctionAnalysis(byte[] handle, RelationType inputType, Node input, RelationType outputType)
+        public TableFunctionAnalysis(byte[] handle, boolean singleNode, RelationType inputType, Node input, RelationType outputType)
         {
             this.handle = handle;
+            this.singleNode = singleNode;
             this.inputType = inputType;
             this.outputType = outputType;
             this.input = input;
@@ -634,6 +637,11 @@ public class Analysis
         public byte[] getHandle()
         {
             return handle;
+        }
+
+        public boolean isSingleNode()
+        {
+            return singleNode;
         }
 
         public RelationType getInputType()

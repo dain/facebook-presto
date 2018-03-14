@@ -23,12 +23,14 @@ import static java.util.Objects.requireNonNull;
 public class TableFunction
 {
     private final byte[] handle;
+    private final boolean singleNode;
     private final List<Integer> inputColumns;
     private final RowType outputType;
 
-    public TableFunction(byte[] handle, List<Integer> inputColumns, RowType outputType)
+    public TableFunction(byte[] handle, boolean singleNode, List<Integer> inputColumns, RowType outputType)
     {
         this.handle = requireNonNull(handle, "handle is null");
+        this. singleNode = singleNode;
         this.inputColumns = unmodifiableList(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputType = outputType;
     }
@@ -36,6 +38,11 @@ public class TableFunction
     public byte[] getHandle()
     {
         return handle;
+    }
+
+    public boolean isSingleNode()
+    {
+        return singleNode;
     }
 
     public List<Integer> getInputColumns()

@@ -151,6 +151,7 @@ class RelationPlanner
                 idAllocator.getNextId(),
                 invocation.getName().toString(),
                 functionAnalysis.getHandle(),
+                functionAnalysis.isSingleNode(),
                 outputs.build(),
                 input.getFieldMappings(),
                 input.getRoot());

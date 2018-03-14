@@ -827,7 +827,7 @@ class StatementAnalyzer
                     .map(field -> Field.newUnqualified(field.getName(), field.getType()))
                     .collect(Collectors.toList()));
 
-            analysis.recordTableFunction(call, new Analysis.TableFunctionAnalysis(resolved.getHandle(), inputType, input, relationType));
+            analysis.recordTableFunction(call, new Analysis.TableFunctionAnalysis(resolved.getHandle(), resolved.isSingleNode(), inputType, input, relationType));
 
             return createAndAssignScope(node, scope, relationType);
         }

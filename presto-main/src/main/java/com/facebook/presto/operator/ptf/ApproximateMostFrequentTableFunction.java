@@ -87,6 +87,7 @@ public class ApproximateMostFrequentTableFunction
 
         return new TableFunction(
                 CODEC.toJsonBytes(handle),
+                true,
                 IntStream.range(0, input.getFields().size()).boxed().collect(toImmutableList()),
                 outputType);
     }

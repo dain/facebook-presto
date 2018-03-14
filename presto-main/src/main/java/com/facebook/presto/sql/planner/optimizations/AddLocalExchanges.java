@@ -44,6 +44,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionCall;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
@@ -118,6 +119,17 @@ public class AddLocalExchanges
             this.types = ImmutableMap.copyOf(symbolAllocator.getTypes());
             this.idAllocator = idAllocator;
             this.session = session;
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunctionCall(TableFunctionCall node, StreamPreferredProperties context)
+        {
+            if (node.isSingleNode()) {
+                // sort requires that all data be in one stream
+                // this node changes the input organization completely, so we do not pass through parent preferences
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+            return super.visitTableFunctionCall(node, context);
         }
 
         @Override

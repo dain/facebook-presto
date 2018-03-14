@@ -82,6 +82,7 @@ public class ThriftTableFunction
 
         return new TableFunction(
                 CODEC.toJsonBytes(handle),
+                false,
                 IntStream.range(0, inputs.size()).boxed().collect(toImmutableList()),
                 outputType);
     }

@@ -97,6 +97,7 @@ public class SplitColumnTableFunction
 
         return new TableFunction(
                 CODEC.toJsonBytes(handle),
+                false,
                 IntStream.range(0, input.getFields().size()).boxed().collect(toImmutableList()),
                 RowType.from(fields));
     }
