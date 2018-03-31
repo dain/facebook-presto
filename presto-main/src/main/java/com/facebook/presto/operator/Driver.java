@@ -21,7 +21,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +49,7 @@ import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Boolean.TRUE;
@@ -68,6 +68,9 @@ public class Driver
 
     private final DriverContext driverContext;
     private final List<Operator> operators;
+    // this is present only for debugging
+    @SuppressWarnings("unused")
+    private final List<Operator> allOperators;
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
 
@@ -117,7 +120,8 @@ public class Driver
     private Driver(DriverContext driverContext, List<Operator> operators)
     {
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
-        this.operators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
+        this.allOperators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
+        this.operators = new ArrayList<>(operators);
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
@@ -190,7 +194,7 @@ public class Driver
     {
         checkLockHeld("Lock must be held to call isFinishedInternal");
 
-        boolean finished = state.get() != State.ALIVE || driverContext.isDone() || operators.get(operators.size() - 1).isFinished();
+        boolean finished = state.get() != State.ALIVE || driverContext.isDone() || operators.isEmpty() || operators.get(operators.size() - 1).isFinished();
         if (finished) {
             state.compareAndSet(State.ALIVE, State.NEED_DESTRUCTION);
         }
@@ -401,6 +405,27 @@ public class Driver
                 }
             }
 
+            for (int index = operators.size() - 1; index >= 0; index--) {
+                if (operators.get(index).isFinished()) {
+                    // close and remove all operators up to and including this operator
+                    List<Operator> finishedOperators = this.operators.subList(0, index + 1);
+                    Throwable throwable = closeAndDestroyOperators(finishedOperators);
+                    finishedOperators.clear();
+                    if (throwable != null) {
+                        throwIfUnchecked(throwable);
+                        throw new RuntimeException(throwable);
+                    }
+                    // ensure new root operator is finishing
+                    if (!operators.isEmpty()) {
+                        Operator newRootOperator = operators.get(0);
+                        newRootOperator.getOperatorContext().startIntervalTimer();
+                        newRootOperator.finish();
+                        newRootOperator.getOperatorContext().recordFinish();
+                    }
+                    break;
+                }
+            }
+
             // if we did not move any pages, check if we are blocked
             if (!movedPage) {
                 List<Operator> blockedOperators = new ArrayList<>();
@@ -485,10 +510,42 @@ public class Driver
             return;
         }
 
+        // if we get an error while closing a driver, record it and we will throw it at the end
+        Throwable inFlightException = null;
+        try {
+            inFlightException = closeAndDestroyOperators(operators);
+            if (driverContext.getMemoryUsage() > 0) {
+                log.error("Driver still has memory reserved after freeing all operator memory.");
+            }
+            if (driverContext.getSystemMemoryUsage() > 0) {
+                log.error("Driver still has system memory reserved after freeing all operator memory.");
+            }
+            if (driverContext.getRevocableMemoryUsage() > 0) {
+                log.error("Driver still has revocable memory reserved after freeing all operator memory. Freeing it.");
+            }
+            driverContext.finished();
+        }
+        catch (Throwable t) {
+            // this shouldn't happen but be safe
+            inFlightException = addSuppressedException(
+                    inFlightException,
+                    t,
+                    "Error destroying driver for task %s",
+                    driverContext.getTaskId());
+        }
+
+        if (inFlightException != null) {
+            // this will always be an Error or Runtime
+            throwIfUnchecked(inFlightException);
+            throw new RuntimeException(inFlightException);
+        }
+    }
+
+    private Throwable closeAndDestroyOperators(List<Operator> operators)
+    {
         // record the current interrupted status (and clear the flag); we'll reset it later
         boolean wasInterrupted = Thread.interrupted();
 
-        // if we get an error while closing a driver, record it and we will throw it at the end
         Throwable inFlightException = null;
         try {
             for (Operator operator : operators) {
@@ -519,24 +576,6 @@ public class Driver
                             driverContext.getTaskId());
                 }
             }
-            if (driverContext.getMemoryUsage() > 0) {
-                log.error("Driver still has memory reserved after freeing all operator memory.");
-            }
-            if (driverContext.getSystemMemoryUsage() > 0) {
-                log.error("Driver still has system memory reserved after freeing all operator memory.");
-            }
-            if (driverContext.getRevocableMemoryUsage() > 0) {
-                log.error("Driver still has revocable memory reserved after freeing all operator memory. Freeing it.");
-            }
-            driverContext.finished();
-        }
-        catch (Throwable t) {
-            // this shouldn't happen but be safe
-            inFlightException = addSuppressedException(
-                    inFlightException,
-                    t,
-                    "Error destroying driver for task %s",
-                    driverContext.getTaskId());
         }
         finally {
             // reset the interrupted flag
@@ -544,12 +583,7 @@ public class Driver
                 Thread.currentThread().interrupt();
             }
         }
-
-        if (inFlightException != null) {
-            // this will always be an Error or Runtime
-            Throwables.throwIfUnchecked(inFlightException);
-            throw new RuntimeException(inFlightException);
-        }
+        return inFlightException;
     }
 
     private Optional<ListenableFuture<?>> getBlockedFuture(Operator operator)
