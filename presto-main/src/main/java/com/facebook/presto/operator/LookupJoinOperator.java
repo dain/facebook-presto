@@ -26,6 +26,7 @@ import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.Nullable;
 
@@ -45,6 +46,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
@@ -81,7 +83,8 @@ public class LookupJoinOperator
     private boolean closed;
     private boolean finishing;
     private boolean unspilling;
-    private boolean finished;
+    // using a future for finished allows a finish to interrupt blocking
+    private final SettableFuture<?> finished = SettableFuture.create();
     private long joinPosition = -1;
     private int joinSourcePositions;
 
@@ -164,7 +167,7 @@ public class LookupJoinOperator
     @Override
     public boolean isFinished()
     {
-        if (finished) {
+        if (finished.isDone()) {
             return true;
         }
 
@@ -187,14 +190,16 @@ public class LookupJoinOperator
     {
         if (!spillInProgress.isDone()) {
             // Input spilling can happen only after lookupSourceProviderFuture was done.
-            return spillInProgress;
+            return whenAnyComplete(ImmutableList.of(spillInProgress, finished));
         }
         if (unspilledLookupSource.isPresent()) {
             // Unspilling can happen only after lookupSourceProviderFuture was done.
-            return unspilledLookupSource.get();
+            return whenAnyComplete(ImmutableList.of(unspilledLookupSource.get(), finished));
         }
-
-        return lookupSourceProviderFuture;
+        if (!lookupSourceProviderFuture.isDone()) {
+            return whenAnyComplete(ImmutableList.of(lookupSourceProviderFuture, finished));
+        }
+        return NOT_BLOCKED;
     }
 
     @Override
@@ -308,7 +313,7 @@ public class LookupJoinOperator
             unspilling = true;
         }
 
-        if (probe == null && unspilling && !finished) {
+        if (probe == null && unspilling && !finished.isDone()) {
             /*
              * If no current partition or it was exhausted, unspill next one.
              * Add input there when it needs one, produce output. Be Happy.
@@ -395,7 +400,7 @@ public class LookupJoinOperator
             lookupSourceProvider = null;
         }
         spiller.ifPresent(PartitioningSpiller::verifyAllPartitionsRead);
-        finished = true;
+        finished.set(null);
     }
 
     private void processProbe()
@@ -517,13 +522,13 @@ public class LookupJoinOperator
         }
         closed = true;
         probe = null;
-        finished = true;
 
         try (Closer closer = Closer.create()) {
             // `afterClose` must be run last.
             // Closer is documented to mimic try-with-resource, which implies close will happen in reverse order.
             closer.register(afterClose::run);
 
+            closer.register(() -> finished.set(null));
             closer.register(pageBuilder::reset);
             closer.register(() -> Optional.ofNullable(lookupSourceProvider).ifPresent(LookupSourceProvider::close));
             spiller.ifPresent(closer::register);
