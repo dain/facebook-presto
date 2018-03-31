@@ -607,6 +607,10 @@ public class Driver
 
     private static ListenableFuture<?> firstFinishedFuture(List<ListenableFuture<?>> futures)
     {
+        if (futures.size() == 1) {
+            return futures.get(0);
+        }
+
         SettableFuture<?> result = SettableFuture.create();
         ExecutorService executor = newDirectExecutorService();
 
