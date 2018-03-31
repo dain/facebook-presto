@@ -433,6 +433,18 @@ public final class PartitionedLookupSourceFactory
         }
 
         @Override
+        public boolean hasSpilled()
+        {
+            lock.readLock().lock();
+            try {
+                return spillingInfo.hasSpilled();
+            }
+            finally {
+                lock.readLock().unlock();
+            }
+        }
+
+        @Override
         public void close()
         {
             LookupSource lookupSource;

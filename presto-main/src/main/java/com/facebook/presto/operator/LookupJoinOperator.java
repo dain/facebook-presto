@@ -156,18 +156,30 @@ public class LookupJoinOperator
 
         checkSuccess(spillInProgress, "spilling failed");
         finishing = true;
+
+        // check if fully finished (and close everything if so)
+        isFinished();
     }
 
     @Override
     public boolean isFinished()
     {
-        boolean finished = this.finished && probe == null && pageBuilder.isEmpty() && outputPage == null;
+        if (finished) {
+            return true;
+        }
+
+        boolean finished = finishing && probe == null && pageBuilder.isEmpty() && outputPage == null && !hasSpilledProbe();
 
         // if finished drop references so memory is freed early
         if (finished) {
             close();
         }
         return finished;
+    }
+
+    private boolean hasSpilledProbe()
+    {
+        return unspilling || (lookupSourceProvider != null && lookupSourceProvider.hasSpilled());
     }
 
     @Override
@@ -505,6 +517,7 @@ public class LookupJoinOperator
         }
         closed = true;
         probe = null;
+        finished = true;
 
         try (Closer closer = Closer.create()) {
             // `afterClose` must be run last.

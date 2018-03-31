@@ -29,6 +29,12 @@ public final class StaticLookupSourceProvider
     }
 
     @Override
+    public boolean hasSpilled()
+    {
+        return false;
+    }
+
+    @Override
     public <R> R withLease(Function<LookupSourceLease, R> action)
     {
         return action.apply(new SimpleLookupSourceLease());

@@ -19,6 +19,8 @@ import java.util.function.IntPredicate;
 public interface LookupSourceProvider
         extends AutoCloseable
 {
+    boolean hasSpilled();
+
     <R> R withLease(Function<LookupSourceLease, R> action);
 
     @Override
