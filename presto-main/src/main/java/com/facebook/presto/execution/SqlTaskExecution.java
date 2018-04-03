@@ -47,6 +47,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,6 +56,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -74,6 +76,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -274,6 +277,16 @@ public class SqlTaskExecution
 
     public TaskContext getTaskContext()
     {
+        ImmutableList<Driver> runningDrivers = drivers.stream()
+                .map(Reference::get)
+                .filter(Objects::nonNull)
+                .filter(driver -> !driver.isFinished())
+                .collect(toImmutableList());
+        ImmutableList<Driver> doneDrivers = drivers.stream()
+                .map(Reference::get)
+                .filter(Objects::nonNull)
+                .filter(driver -> driver.isFinished())
+                .collect(toImmutableList());
         return taskContext;
     }
 

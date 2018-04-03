@@ -31,6 +31,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -44,6 +45,7 @@ import static com.facebook.presto.operator.LookupJoinOperators.JoinType.FULL_OUT
 import static com.facebook.presto.operator.LookupJoinOperators.JoinType.PROBE_OUTER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -188,18 +190,24 @@ public class LookupJoinOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
+        List<ListenableFuture<?>> futures = new ArrayList<>();
         if (!spillInProgress.isDone()) {
             // Input spilling can happen only after lookupSourceProviderFuture was done.
-            return whenAnyComplete(ImmutableList.of(spillInProgress, finished));
+            futures.add(spillInProgress);
         }
-        if (unspilledLookupSource.isPresent()) {
-            // Unspilling can happen only after lookupSourceProviderFuture was done.
-            return whenAnyComplete(ImmutableList.of(unspilledLookupSource.get(), finished));
-        }
+
+        // Unspilling can happen only after lookupSourceProviderFuture was done.
+        unspilledLookupSource.ifPresent(futures::add);
+        
         if (!lookupSourceProviderFuture.isDone()) {
-            return whenAnyComplete(ImmutableList.of(lookupSourceProviderFuture, finished));
+            futures.add(lookupSourceProviderFuture);
         }
-        return NOT_BLOCKED;
+
+        if (futures.isEmpty()) {
+            return NOT_BLOCKED;
+        }
+        futures.add(finished);
+        return whenAnyComplete(futures);
     }
 
     @Override
@@ -522,6 +530,16 @@ public class LookupJoinOperator
         }
         closed = true;
         probe = null;
+
+        if (partitionedConsumption == null) {
+            partitionedConsumption = lookupSourceFactory.finishProbeOperator(lookupJoinsCount);
+        }
+        addSuccessCallback(partitionedConsumption, x -> {
+            lookupPartitions = x.beginConsumption();
+            while (lookupPartitions.hasNext()) {
+                lookupPartitions.next().release();;
+            }
+        });
 
         try (Closer closer = Closer.create()) {
             // `afterClose` must be run last.
