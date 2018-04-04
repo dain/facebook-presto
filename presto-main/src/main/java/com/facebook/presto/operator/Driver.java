@@ -366,6 +366,17 @@ public class Driver
                 return NOT_BLOCKED;
             }
 
+            // LookupJoinOperator is broken and requires finish to be called continuously
+            // TODO remove when LookupJoinOperator is fixed
+            if (!operators.isEmpty()) {
+                Operator rootOperator = operators.get(0);
+                if (rootOperator instanceof LookupJoinOperator) {
+                    rootOperator.getOperatorContext().startIntervalTimer();
+                    rootOperator.finish();
+                    rootOperator.getOperatorContext().recordFinish();
+                }
+            }
+
             boolean movedPage = false;
             for (int i = 0; i < operators.size() - 1 && !driverContext.isDone(); i++) {
                 Operator current = operators.get(i);
