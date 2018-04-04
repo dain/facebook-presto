@@ -354,9 +354,7 @@ public class LookupJoinOperator
             return;
         }
 
-        if (lookupPartitions == null) {
-            lookupPartitions = getDone(partitionedConsumption).beginConsumption();
-        }
+        Iterator<Partition<Supplier<LookupSource>>> lookupPartitions = getPartitionIterator();
 
         if (unspilledInputPages.hasNext()) {
             addInput(unspilledInputPages.next());
@@ -409,6 +407,16 @@ public class LookupJoinOperator
         }
         spiller.ifPresent(PartitioningSpiller::verifyAllPartitionsRead);
         finished.set(null);
+    }
+
+    private synchronized Iterator<Partition<Supplier<LookupSource>>> getPartitionIterator()
+    {
+        checkState(partitionedConsumption != null);
+        checkState(partitionedConsumption.isDone());
+        if (lookupPartitions == null) {
+            lookupPartitions = getDone(partitionedConsumption).beginConsumption();
+        }
+        return this.lookupPartitions;
     }
 
     private void processProbe()
@@ -534,11 +542,9 @@ public class LookupJoinOperator
         if (partitionedConsumption == null) {
             partitionedConsumption = lookupSourceFactory.finishProbeOperator(lookupJoinsCount);
         }
-        addSuccessCallback(partitionedConsumption, x -> {
-            lookupPartitions = x.beginConsumption();
-            while (lookupPartitions.hasNext()) {
-                lookupPartitions.next().release();;
-            }
+        addSuccessCallback(partitionedConsumption, partitionedConsumption -> {
+            Iterator<Partition<Supplier<LookupSource>>> lookupPartitions = getPartitionIterator();
+            destroyPartitionChain(lookupPartitions);
         });
 
         try (Closer closer = Closer.create()) {
@@ -553,6 +559,15 @@ public class LookupJoinOperator
         }
         catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void destroyPartitionChain(Iterator<Partition<Supplier<LookupSource>>> lookupPartitions)
+    {
+        if (lookupPartitions.hasNext()) {
+            Partition<Supplier<LookupSource>> partition = lookupPartitions.next();
+            ListenableFuture<Supplier<LookupSource>> loadFuture = partition.load();
+            addSuccessCallback(loadFuture, () -> destroyPartitionChain(lookupPartitions));
         }
     }
 
