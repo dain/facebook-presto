@@ -34,7 +34,6 @@ import java.util.function.Function;
 
 import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FAILED;
-import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
@@ -116,7 +115,7 @@ public class LocalDispatchQuery
 
     private ListenableFuture<?> queryDispatchFuture(QueryState currentState)
     {
-        if (currentState.ordinal() >= PLANNING.ordinal()) {
+        if (currentState.ordinal() >= DISPATCHING.ordinal()) {
             return immediateFuture(null);
         }
         return Futures.transformAsync(stateMachine.getStateChange(currentState), this::queryDispatchFuture, directExecutor());
